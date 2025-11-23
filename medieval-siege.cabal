@@ -8,6 +8,10 @@ build-type:         Simple
 
 executable siege
     main-is:          Main.hs
+    other-modules:    Types,
+                      Constants,
+                      Utils,
+                      Rendering
     build-depends:    base >=4.14 && <5,
                       gloss >=1.13,
                       containers >=0.6
