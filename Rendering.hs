@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
--- Rendering.hs - All visualization and rendering code
+-- Rendering.hs - Complete Merged Graphics
 
 module Rendering where
 
@@ -12,13 +12,26 @@ import Constants
 import Utils
 
 -- ============================================================================
+-- COLOR PALETTE 
+-- ============================================================================
+
+colGrassLight, colGrassDark, colRoad, colRoadEdge, colTreeLight, colTreeDark, colShadow :: Color
+colGrassLight = makeColor 0.42 0.76 0.25 1    -- Vibrant light green
+colGrassDark  = makeColor 0.35 0.65 0.20 1    -- Slightly darker for texture
+colRoad       = makeColor 0.88 0.78 0.55 1    -- Sandy/Dirt path
+colRoadEdge   = makeColor 0.80 0.70 0.50 1    -- Darker sand for edges
+colTreeLight  = makeColor 0.13 0.55 0.13 1    -- Deep forest green
+colTreeDark   = makeColor 0.08 0.35 0.08 1    -- Shadow green
+colShadow     = makeColor 0 0 0 0.25          -- Semi-transparent black
+
+-- ============================================================================
 -- MAIN RENDER FUNCTION
 -- ============================================================================
 
 render :: GameState -> Picture
 render state =
   pictures
-    [ drawBackground
+    [ drawBackground state
     , drawGrid state
     , drawCastle (castle state)
     , drawTowerRanges state
@@ -33,14 +46,63 @@ render state =
     ]
 
 -- ============================================================================
--- BACKGROUND AND GRID
+-- BACKGROUND RENDERING
 -- ============================================================================
 
-drawBackground :: Picture
-drawBackground = 
+-- A "Puffy" Cartoon Tree
+drawCartoonTree :: Float -> Float -> Picture
+drawCartoonTree x y = translate x y (pictures
+  [ -- 1. Drop Shadow
+    translate 5 (-20) (color colShadow (circleSolid 35))
+    
+  -- 2. Trunk
+  , translate 0 (-25) (color (makeColor 0.4 0.3 0.2 1) (rectangleSolid 15 25))
+
+  -- 3. The Leaves (Three circles to make a cloud shape)
+  , translate (-15) (-5) (color colTreeDark (circleSolid 22))
+  , translate (-15) (-5) (color colTreeLight (circleSolid 18))
+  
+  , translate 15 (-5) (color colTreeDark (circleSolid 22))
+  , translate 15 (-5) (color colTreeLight (circleSolid 18))
+  
+  , translate 0 15 (color colTreeDark (circleSolid 28))
+  , translate 0 15 (color colTreeLight (circleSolid 24))
+  
+  -- 4. Highlight
+  , translate (-5) 25 (color (makeColor 0.2 0.65 0.2 1) (circleSolid 10))
+  ])
+
+drawBackground :: GameState -> Picture
+drawBackground _ = 
   pictures
-    [ color (makeColor 0.15 0.2 0.15 1) (rectangleSolid (fromIntegral windowWidth) (fromIntegral windowHeight))
-    , color (makeColor 0.1 0.15 0.1 0.3) (pictures [translate 0 y (rectangleSolid (fromIntegral windowWidth) 3) | y <- [-300, -200..300]])
+    [ -- 1. BASE GRASS LAYER
+      color colGrassLight (rectangleSolid (fromIntegral windowWidth) (fromIntegral windowHeight))
+      
+    , -- 2. GRASS TEXTURE
+      color colGrassDark 
+        (pictures [ translate x y (circleSolid r) 
+                  | x <- [-500, -420..500], y <- [-350, -280..350], let r = 25 ])
+
+    , -- 3. THE ORGANIC SANDY ROAD
+      -- Base layers
+      color colRoadEdge (rectangleSolid 1100 160)
+    , color colRoad (rectangleSolid 1100 140)
+    
+      -- Road Details
+    , color (makeColor 0.7 0.6 0.4 1)
+        (pictures [ translate x y (circleSolid 4) 
+                  | x <- [-500, -450..500], y <- [-50, 0, 50] ])
+
+    , -- 4. "WOBBLY" EDGES (Grass overlaying road)
+      color colGrassLight
+        (pictures (
+           [ translate x 75 (circleSolid 15) | x <- [-500, -470..500] ] ++
+           [ translate x (-75) (circleSolid 15) | x <- [-500, -470..500] ]
+        ))
+
+    , -- 5. FOREST (Thinned out version you requested)
+      pictures [ drawCartoonTree x y | x <- [-450, -300..450], y <- [160, 260..320] ]
+    , pictures [ drawCartoonTree x y | x <- [-450, -300..450], y <- [-300, -200..(-140)] ]
     ]
 
 drawGrid :: GameState -> Picture
@@ -49,7 +111,7 @@ drawGrid state =
                 | x <- [-fromIntegral windowWidth/2, -fromIntegral windowWidth/2 + cellSize .. fromIntegral windowWidth/2]]
       hLines = [Line [(-fromIntegral windowWidth/2, y), (fromIntegral windowWidth/2, y)] 
                 | y <- [-fromIntegral windowHeight/2, -fromIntegral windowHeight/2 + cellSize .. fromIntegral windowHeight/2]]
-      gridLines = color (makeColor 0.3 0.4 0.3 0.15) (pictures (vLines ++ hLines))
+      gridLines = color (makeColor 0 0 0 0.05) (pictures (vLines ++ hLines))
       
       dangerZoneVis = pictures [
         let (x, y) = gridToWorld pos
@@ -60,7 +122,7 @@ drawGrid state =
   in pictures [gridLines, dangerZoneVis]
 
 -- ============================================================================
--- CASTLE RENDERING
+-- CASTLE RENDERING (3D Version)
 -- ============================================================================
 
 drawCastle :: Castle -> Picture
@@ -68,90 +130,103 @@ drawCastle c =
   let (x, y) = castlePos c
       healthPercent = fromIntegral (castleHealth c) / fromIntegral (castleMaxHealth c)
       shieldAlpha = fromIntegral (castleShield c) / 20.0
+      stoneTop    = makeColor 0.6 0.6 0.65 1
+      stoneFront  = makeColor 0.45 0.45 0.5 1
+      stoneShadow = makeColor 0.3 0.3 0.35 1
+      goldTop     = makeColor 1 0.85 0.2 1
+      goldSide    = makeColor 0.7 0.6 0.1 1
+
   in pictures
-       [ translate x y (color (dark red) (rectangleSolid 70 70))
-       , translate x y (color red (rectangleSolid 60 60))
-       , translate (x-25) (y+25) (color (dark red) (rectangleSolid 15 30))
-       , translate (x+25) (y+25) (color (dark red) (rectangleSolid 15 30))
-       , translate x (y+35) (color yellow (Polygon [(0,0), (10,5), (0,10)]))
+       [ translate x y (color stoneShadow (rectangleSolid 74 74))
+       , translate x (y+8) (color stoneFront (rectangleSolid 70 70))
+       , pictures [ translate (x+dx) (y+dy+12) 
+                     (pictures 
+                        [ color stoneShadow (rectangleSolid 26 26)
+                        , translate 0 6 (color stoneTop (rectangleSolid 24 24))
+                        ])
+                  | dx <- [-34, 34], dy <- [-34, 34] ] 
+       , translate x (y+20) (pictures
+           [ color stoneTop (rectangleSolid 56 56)
+           , color goldSide (rectangleSolid 34 34)
+           , translate 0 4 (color goldTop (rectangleSolid 30 30))
+           , translate 0 4 (color cyan (rectangleSolid 10 10))
+           ])
+       , translate x (y+35) (color yellow (Polygon [(0,0), (15,8), (0,16)]))
        , if castleShield c > 0
-           then translate x y (color (makeColor 0.3 0.6 1 (shieldAlpha * 0.4)) (ThickCircle 35 5))
+           then translate x (y+15) (color (makeColor 0.3 0.6 1 (shieldAlpha * 0.4)) (ThickCircle 65 4))
            else blank
-       , translate x (y-50) (scale 0.12 0.12 (color white (text "CASTLE")))
-       , translate x (y-65) (color (dark red) (rectangleSolid 70 8))
-       , translate (x - 35 + 35 * healthPercent) (y-65) (color green (rectangleSolid (70 * healthPercent) 8))
+       , translate x (y-55) (color black (rectangleSolid 70 8))
+       , translate (x - 35 + 35 * healthPercent) (y-55) (color green (rectangleSolid (70 * healthPercent) 8))
        , if castleShield c > 0
-           then translate x (y-75) (color cyan (rectangleSolid (70 * fromIntegral (castleShield c) / 20) 5))
+           then translate x (y-65) (color cyan (rectangleSolid (70 * fromIntegral (castleShield c) / 20) 5))
            else blank
        ]
 
 -- ============================================================================
--- TOWER RENDERING
+-- TOWER RENDERING 
 -- ============================================================================
 
 drawArrowTower :: Int -> Picture
 drawArrowTower level =
-  let baseColor = makeColor 0.5 0.5 0.5 1
-      accentColor = makeColor 0.7 0.5 0.3 1
-      size = 18 + fromIntegral (level - 1) * 2
-  in pictures
-       [ color baseColor (rectangleSolid size size)
-       , color baseColor (translate (-size/2) (size/2) (rectangleSolid (size/4) (size/4)))
-       , color baseColor (translate (size/2) (size/2) (rectangleSolid (size/4) (size/4)))
-       , color baseColor (translate 0 (size/2) (rectangleSolid (size/4) (size/4)))
-       , color black (rectangleSolid 3 (size * 0.6))
-       , color accentColor (translate 0 (-size/3) (rectangleSolid (size * 0.8) 3))
-       , color white (Polygon [(0, size/2 + 3), (-3, size/2 - 2), (3, size/2 - 2)])
-       ]
+  let woodDark  = makeColor 0.4 0.25 0.1 1
+      woodLight = makeColor 0.6 0.4 0.2 1
+      roofCol   = makeColor 0.35 0.2 0.1 1
+      s = 1.0 + fromIntegral (level - 1) * 0.1
+  in scale s s (pictures
+       [ color woodDark (Polygon [(-12, -15), (12, -15), (10, 5), (-10, 5)])
+       , translate 0 8 (color woodLight (rectangleSolid 28 6))
+       , translate 0 15 (color woodLight (rectangleSolid 20 16))
+       , translate 0 15 (color black (rectangleSolid 6 10))
+       , translate 0 28 (color roofCol (Polygon [(-14, -5), (14, -5), (0, 10)]))
+       ])
 
 drawCannonTower :: Int -> Picture
 drawCannonTower level =
-  let baseColor = makeColor 0.4 0.3 0.2 1
-      metalColor = makeColor 0.6 0.6 0.6 1
-      size = 20 + fromIntegral (level - 1) * 2
-  in pictures
-       [ color baseColor (rectangleSolid (size * 1.2) (size * 1.2))
-       , color (dark baseColor) (rectangleSolid (size * 1.1) (size * 1.1))
-       , color metalColor (rectangleSolid (size * 1.3) 6)
-       , color (dark metalColor) (rectangleSolid (size * 1.3) 4)
-       , translate (size * 0.65) 0 (color metalColor (circleSolid 7))
-       , translate (size * 0.65) 0 (color black (circleSolid 4))
-       , color metalColor (translate (-size/2) (size/2) (rectangleSolid 4 4))
-       , color metalColor (translate (size/2) (size/2) (rectangleSolid 4 4))
-       , color metalColor (translate (-size/2) (-size/2) (rectangleSolid 4 4))
-       , color metalColor (translate (size/2) (-size/2) (rectangleSolid 4 4))
-       ]
+  let stoneDark  = makeColor 0.3 0.3 0.35 1
+      stoneLight = makeColor 0.5 0.5 0.55 1
+      metalBlack = makeColor 0.1 0.1 0.1 1
+      fuseRed    = makeColor 0.8 0.2 0.1 1
+      s = 1.0 + fromIntegral (level - 1) * 0.15
+  in scale s s (pictures
+       [ color stoneDark (circleSolid 18)
+       , color stoneLight (circleSolid 14)
+       , translate 0 2 (color metalBlack (rectangleSolid 12 24))
+       , translate 0 14 (color (makeColor 0 0 0 1) (rectangleSolid 14 4))
+       , translate 0 (-2) (color metalBlack (circleSolid 10))
+       , translate 0 (-8) (color fuseRed (circleSolid 3))
+       ])
 
 drawIceTower :: Int -> Picture
 drawIceTower level =
-  let baseColor = makeColor 0.6 0.8 1 0.9
-      glowColor = makeColor 0.3 0.6 1 0.6
-      size = 18 + fromIntegral (level - 1) * 2
-  in pictures
-       [ color glowColor (circleSolid (size * 1.5))
-       , color baseColor (Polygon [(0, size * 1.2), (size * 0.7, 0), (0, -size * 1.2), (-size * 0.7, 0)])
-       , color (makeColor 0.8 0.9 1 1) (Polygon [(0, size * 0.8), (size * 0.5, 0), (0, -size * 0.8), (-size * 0.5, 0)])
-       , color (makeColor 0.2 0.4 1 0.8) (Line [(0, size * 1.2), (0, -size * 1.2)])
-       , color (makeColor 0.2 0.4 1 0.8) (Line [(-size * 0.7, 0), (size * 0.7, 0)])
-       , color (makeColor 0.2 0.4 1 0.8) (Line [(-size * 0.5, size * 0.8), (size * 0.5, -size * 0.8)])
-       , color (makeColor 0.2 0.4 1 0.8) (Line [(size * 0.5, size * 0.8), (-size * 0.5, -size * 0.8)])
-       , color white (circleSolid (size * 0.3))
-       ]
+  let baseCol  = makeColor 0.2 0.3 0.4 1
+      iceCore  = makeColor 0.4 0.8 1 0.9
+      iceGlow  = makeColor 0.4 0.8 1 0.3
+      white    = makeColor 1 1 1 0.8
+      s = 1.0 + fromIntegral (level - 1) * 0.1
+  in scale s s (pictures
+       [ color baseCol (Polygon [(-12, -15), (12, -15), (15, 0), (-15, 0)])
+       , translate 0 10 (color iceGlow (circleSolid 18))
+       , translate 0 10 (color iceCore (Polygon [(-8, 0), (0, 20), (8, 0), (0, -15)]))
+       , translate (-12) 15 (color white (Polygon [(-3, 0), (0, 6), (3, 0), (0, -4)]))
+       , translate 12 8 (color white (Polygon [(-2, 0), (0, 5), (2, 0), (0, -3)]))
+       ])
 
 drawLightningTower :: Int -> Picture
 drawLightningTower level =
-  let baseColor = makeColor 0.8 0.3 1 1
-      sparkColor = makeColor 1 1 0.5 1
-      size = 20 + fromIntegral (level - 1) * 2
-  in pictures
-       [ color (makeColor 0.6 0.2 0.8 0.5) (ThickCircle (size * 1.2) 3)
-       , color baseColor (ThickCircle size 4)
-       , color (makeColor 0.9 0.5 1 1) (circleSolid (size * 0.7))
-       , color sparkColor (Polygon [(0, size * 0.7), (-3, size * 0.3), (0, size * 0.2), (3, -size * 0.7)])
-       , rotate 120 (color sparkColor (Polygon [(0, size * 0.5), (-2, size * 0.2), (0, 0), (2, -size * 0.5)]))
-       , rotate 240 (color sparkColor (Polygon [(0, size * 0.5), (-2, size * 0.2), (0, 0), (2, -size * 0.5)]))
-       , color white (circleSolid (size * 0.2))
-       ]
+  let stonePurp = makeColor 0.25 0.2 0.3 1
+      magicPink = makeColor 0.8 0.2 0.8 1
+      coreWhite = makeColor 1 0.9 1 1
+      gold      = makeColor 0.9 0.7 0.1 1
+      s = 1.0 + fromIntegral (level - 1) * 0.1
+  in scale s s (pictures
+       [ color stonePurp (Polygon [(-10, -15), (10, -15), (6, 20), (-6, 20)])
+       , translate 0 (-5) (color gold (rectangleSolid 16 4))
+       , translate 0 5 (color gold (rectangleSolid 14 4))
+       , translate 0 22 (color magicPink (circleSolid 9))
+       , translate 0 22 (color coreWhite (circleSolid 5))
+       , translate (-8) 22 (rotate 45 (color gold (rectangleSolid 2 10)))
+       , translate 8 22 (rotate (-45) (color gold (rectangleSolid 2 10)))
+       ])
 
 drawLevelBanners :: Int -> Float -> Float -> Picture
 drawLevelBanners level x y =
@@ -159,9 +234,9 @@ drawLevelBanners level x y =
       activeBanners = take level bannerPositions
       bannerColor = makeColor 0.9 0.7 0.1 1
   in pictures [translate (x + dx) (y + dy) (pictures
-                 [ color bannerColor (Polygon [(0, 0), (6, -3), (0, -8), (-6, -3)])
-                 , color (dark bannerColor) (Line [(0, 0), (0, -8)])
-                 ]) | (dx, dy) <- activeBanners]
+                  [ color bannerColor (Polygon [(0, 0), (6, -3), (0, -8), (-6, -3)])
+                  , color (dark bannerColor) (Line [(0, 0), (0, -8)])
+                  ]) | (dx, dy) <- activeBanners]
 
 drawTowerEnhanced :: GameState -> Tower -> Picture
 drawTowerEnhanced state t =
@@ -301,7 +376,7 @@ drawEnemy e =
       
       stunEffect = if enemyStunned e > 0
         then pictures [translate x y (color cyan (ThickCircle (size * 1.3) 2)),
-                      translate x (y + size + 15) (scale 0.08 0.08 (color cyan (text "STUNNED")))]
+                       translate x (y + size + 15) (scale 0.08 0.08 (color cyan (text "STUNNED")))]
         else blank
       
   in pictures [translate x y enemyCircle, armorBars, healthBg, healthBar, stunEffect]
