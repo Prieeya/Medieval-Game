@@ -1,6 +1,7 @@
 cabal-version:      2.4
 name:               medieval-siege
 version:            0.1.0.0
+<<<<<<< HEAD
 license:            MIT
 author:             Your Name
 maintainer:         your.email@example.com
@@ -17,3 +18,56 @@ executable siege
                       containers >=0.6
     default-language: Haskell2010
     ghc-options:      -O2 -threaded -rtsopts
+=======
+synopsis:           Medieval Siege Defense Game
+description:        A strategic, adaptive arcade-style medieval siege defense game
+license:            BSD-3-Clause
+author:             Game Developer
+maintainer:         dev@example.com
+category:           Game
+build-type:         Simple
+
+executable medieval-siege
+  main-is:            Main.hs
+  other-modules:      Types
+                    , Constants
+                    , Config
+                    , Assets
+                    , GameLoop
+                    , Rendering.RenderWorld
+                    , Rendering.RenderUI
+                    , Rendering.RenderDebug
+                    , Rendering.SpriteAnimation
+                    , Physics.PhysicsCore
+                    , Physics.Collision
+                    , Physics.Projectiles
+                    , AI.Pathfinding
+                    , AI.FSM
+                    , AI.Director
+                    , AI.ThreatAnalysis
+                    , Systems.CastleSystem
+                    , Systems.FortSystem
+                    , Systems.WaveSystem
+                    , Systems.ResourceSystem
+                    , Systems.TowerSystem
+                    , Systems.TrapSystem
+                    , Systems.DamageSystem
+                    , Systems.AbilitySystem
+                    , Audio.AudioCore
+                    , Audio.SoundEvents
+                    , Input.InputHandler
+  hs-source-dirs:     src
+  default-language:   Haskell2010
+  build-depends:      base >= 4.14 && < 5
+                    , gloss >= 1.13
+                    , containers >= 0.6
+                    , vector >= 0.12
+                    , random >= 1.2
+                    , mtl >= 2.2
+                    , bytestring >= 0.10
+                    , directory >= 1.2
+                    , filepath >= 1.4
+                    , JuicyPixels >= 3.3
+                    , gloss-juicy >= 0.2
+  ghc-options:        -O2 -threaded -rtsopts -with-rtsopts=-N
+>>>>>>> 0795086 (Initial commit)

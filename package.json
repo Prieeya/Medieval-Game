@@ -1,0 +1,26 @@
+{
+  "name": "medieval-siege-simulator",
+  "version": "1.0.0",
+  "description": "Sprite generation pipeline for Medieval Siege Simulator",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate_animated_sprites.mjs",
+    "generate:hf": "node generate_with_huggingface.mjs",
+    "generate:single": "node generate_single_animation.mjs",
+    "test-api": "node test_api_connection.mjs",
+    "test-hf": "node test_huggingface.mjs"
+  },
+  "keywords": [
+    "game",
+    "sprite",
+    "generation",
+    "medieval"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^16.3.1",
+    "sharp": "^0.33.0"
+  }
+}

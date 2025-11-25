@@ -1,0 +1,41 @@
+# Build artifacts
+dist-newstyle/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+*.p_hi
+*.p_o
+
+# Cabal
+.cabal-sandbox/
+cabal.sandbox.config
+*.cabal~
+cabal.project.local
+
+# Stack
+.stack-work/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Generated sprites (optional - uncomment if you don't want to commit generated assets)
+# assets/images/
+
+# Environment variables
+.env
+.env.local
+
