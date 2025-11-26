@@ -39,3 +39,4 @@ yarn.lock
 .env
 .env.local
 
+HUGGINGFACE_INTEGRATION.md
