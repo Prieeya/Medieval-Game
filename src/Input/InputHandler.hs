@@ -122,13 +122,15 @@ placeTrap trapType pos world
   | not (isValidTrapPlacement pos world) = world
   | resGold (resources world) < trapCost trapType = world
   | otherwise =
-      let trap = Trap
+      let initialAnim = AnimationState { animType = AnimIdle, animFrame = 0, animTime = 0 }
+          trap = Trap
             { trapId = nextEntityId world
             , trapType = trapType
             , trapPos = pos
             , trapTriggered = False
             , trapActiveTime = 0
             , trapAffectedEnemies = mempty
+            , trapAnimState = initialAnim
             }
           traps' = M.insert (nextEntityId world) trap (traps world)
           resources' = ResourceSystem.spendGold (trapCost trapType) (resources world)

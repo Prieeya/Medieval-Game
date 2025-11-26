@@ -51,7 +51,7 @@ castleX = fortCenterX + 100
 castleY = 0
 
 castleSize :: Float
-castleSize = 80
+castleSize = 120  -- Larger base size for castle
 
 -- ============================================================================
 -- Wave & Level Constants
@@ -90,17 +90,17 @@ spawnYRange = (-350, 350)
 
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
 -- Normal Enemies (7 Total)
-enemyStats GruntRaider = (60, 0, 72, 20, 40, 1.5)      -- Weak melee rusher
-enemyStats BruteCrusher = (150, 5, 40, 30, 70, 2.5)    -- Slow high-HP tank
-enemyStats Direwolf = (40, 0, 140, 15, 25, 1.0)        -- Ultra-fast low HP
-enemyStats Shieldbearer = (120, 8, 60, 25, 40, 2.0)     -- Projectile-resistant tank
-enemyStats Pyromancer = (80, 2, 55, 200, 15, 2.0)      -- Ranged caster (burns towers)
-enemyStats Necromancer = (100, 3, 50, 180, 20, 2.5)    -- Summoner
-enemyStats BoulderRamCrew = (250, 10, 50, 30, 150, 3.0) -- Anti-castle siege ram
+enemyStats GruntRaider = (60, 0, 72, 8, 40, 1.5)      -- Weak melee rusher (reduced range from 20 to 8)
+enemyStats BruteCrusher = (150, 5, 40, 10, 70, 2.5)    -- Slow high-HP tank (reduced range from 30 to 10)
+enemyStats Direwolf = (40, 0, 140, 6, 25, 1.0)        -- Ultra-fast low HP (reduced range from 15 to 6)
+enemyStats Shieldbearer = (120, 8, 60, 8, 40, 2.0)     -- Projectile-resistant tank (reduced range from 25 to 8)
+enemyStats Pyromancer = (80, 2, 55, 200, 15, 2.0)      -- Ranged caster (burns towers) - keep range
+enemyStats Necromancer = (100, 3, 50, 180, 20, 2.5)    -- Summoner - keep range
+enemyStats BoulderRamCrew = (250, 10, 50, 12, 150, 3.0) -- Anti-castle siege ram (reduced range from 30 to 12)
 -- Bosses (Every 3 Levels)
-enemyStats IronbackMinotaur = (600, 15, 55, 35, 100, 2.5)  -- Tank boss Level 3
-enemyStats FireDrake = (750, 12, 65, 250, 150, 2.0)        -- Ranged fire AoE boss Level 6
-enemyStats LichKingArcthros = (900, 18, 50, 220, 120, 3.0) -- Summoner + debuffer Level 9
+enemyStats IronbackMinotaur = (600, 15, 55, 15, 100, 2.5)  -- Tank boss (reduced range from 35 to 15)
+enemyStats FireDrake = (750, 12, 65, 250, 150, 2.0)        -- Ranged fire AoE boss - keep range
+enemyStats LichKingArcthros = (900, 18, 50, 220, 120, 3.0) -- Summoner + debuffer - keep range
 
 -- (hp, armor, speed, attackRange, damage, attackCooldown)
 
@@ -251,3 +251,37 @@ lightningChainRange = 100.0
 
 lightningMaxChains :: Int
 lightningMaxChains = 3
+
+-- ============================================================================
+-- Visual Scaling Constants
+-- ============================================================================
+
+-- Global pixel art scaling factor
+globalPixelScale :: Float
+globalPixelScale = 1.4
+
+-- Entity scaling factors (applied on top of globalPixelScale)
+enemyScale :: Float
+enemyScale = 1.4  -- 40% bigger
+
+towerScale :: Float
+towerScale = 1.2  -- Reduced from 1.4 (defenses smaller)
+
+projectileScale :: Float
+projectileScale = 2.0  -- Reduced from 3.5 (bullets smaller)
+
+bossScale :: Float
+bossScale = 2.0  -- Bosses are 2x enemy scale
+
+-- Base sprite sizes (before scaling)
+enemyBaseSize :: Float
+enemyBaseSize = 48.0  -- 48x48 pixel sprites
+
+towerBaseSize :: Float
+towerBaseSize = 48.0  -- 48x48 pixel sprites
+
+projectileBaseSize :: Float
+projectileBaseSize = 24.0  -- 24x24 pixel sprites
+
+tileSize :: Float
+tileSize = 64.0  -- 64x64 game tiles (32x32 sprites scaled 2x)

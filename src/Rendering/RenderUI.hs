@@ -4,104 +4,310 @@ import Graphics.Gloss
 import Types
 import Constants
 import qualified Data.Map.Strict as M
+import Rendering.PixelArt (pixelColor)
+import qualified Constants as C
 
 -- ============================================================================
--- UI Rendering - Medieval Theme
+-- UI Rendering - Medieval Pixel Art Theme
+-- ============================================================================
+
+-- Medieval color palette
+woodBrown :: Color
+woodBrown = pixelColor "brown"
+
+darkWoodBrown :: Color
+darkWoodBrown = pixelColor "dark brown"
+
+stoneGray :: Color
+stoneGray = pixelColor "gray"
+
+darkStoneGray :: Color
+darkStoneGray = pixelColor "dark gray"
+
+parchment :: Color
+parchment = makeColor 0.95 0.9 0.8 1.0
+
+metalSilver :: Color
+metalSilver = pixelColor "silver"
+
+goldColor :: Color
+goldColor = makeColor 1.0 0.84 0.0 1.0
+
+-- ============================================================================
+-- Main UI Layout
 -- ============================================================================
 
 renderUI :: World -> Picture
-renderUI world = translate (-worldWidth/2 + 20) (worldHeight/2 - 30) $ pictures
-  [ renderResourceDisplay world
-  , translate 0 (-60) $ renderWaveDisplay world
-  , translate 0 (-120) $ renderAbilityDisplay world
-  , translate 0 (-200) $ renderBuildModeDisplay world
-  , translate 0 (-260) $ renderGameStatus world
-  , translate 0 (-320) $ renderUpgradeInfo world
+renderUI world = pictures
+  [ renderTopBar world
+  , renderTreasuryPanel world
+  , renderLevelPanel world
+  , renderCastleHPBar world
+  , renderTowerHotbar world
+  , renderTrapHotbar world
+  , renderBuildModeDisplay world
+  , renderGameStatus world
   ]
 
 -- ============================================================================
--- Resource Display - Medieval Style
+-- Top Bar - Wooden Plank Header with Metal Rivets
 -- ============================================================================
 
-renderResourceDisplay :: World -> Picture
-renderResourceDisplay world =
+renderTopBar :: World -> Picture
+renderTopBar world =
+  let barWidth = worldWidth
+      barHeight = 40
+      barY = worldHeight / 2 - barHeight / 2
+      -- Wooden plank texture
+      woodPattern = pictures $ map (\i ->
+        let x = -worldWidth/2 + fromIntegral (i `mod` 20) * (worldWidth / 20)
+            y = barY
+            woodColor = if i `mod` 2 == 0 then woodBrown else darkWoodBrown
+        in translate x y $ color woodColor $ rectangleSolid (worldWidth / 20) barHeight
+        ) [0..19]
+      -- Metal rivets
+      rivets = pictures $ map (\i ->
+        let x = -worldWidth/2 + 20 + fromIntegral i * 150
+            y = barY
+        in translate x y $ color metalSilver $ circleSolid 3
+        ) [0..10]
+      -- Border
+      border = translate 0 barY $ color darkWoodBrown $ rectangleWire barWidth barHeight
+  in pictures [woodPattern, rivets, border]
+
+-- ============================================================================
+-- Treasury Panel - Wooden Panel with Gold Coin Icon
+-- ============================================================================
+
+renderTreasuryPanel :: World -> Picture
+renderTreasuryPanel world =
   let gold = resGold (resources world)
-      goldColor = makeColor 1.0 0.84 0.0 1.0  -- Golden yellow
-      shadowColor = makeColor 0.0 0.0 0.0 0.8  -- Black shadow for readability
-      -- Add shadow for better visibility
-      renderTextWithShadow txt x y scale' col =
-        pictures
-          [ translate (x + 1) (y - 1) $ color shadowColor $ scale scale' scale' $ text txt
-          , translate x y $ color col $ scale scale' scale' $ text txt
-          ]
-  in pictures
-    [ renderTextWithShadow "⚔ TREASURY ⚔" 0 0 0.18 goldColor
-    , renderTextWithShadow ("Coins: " ++ show gold) 0 (-25) 0.16 goldColor
-    ]
+      panelX = -worldWidth/2 + 120
+      panelY = worldHeight/2 - 80
+      panelWidth = 180
+      panelHeight = 50
+      -- Wooden panel background
+      panelBg = translate panelX panelY $ pictures
+        [ color woodBrown $ rectangleSolid panelWidth panelHeight
+        , color darkWoodBrown $ rectangleWire panelWidth panelHeight
+        ]
+      -- Gold coin icon (8x8 pixel art)
+      coinIcon = translate (panelX - 60) panelY $ renderGoldCoinIcon
+      -- Gold text
+      goldText = translate (panelX + 20) panelY $ color goldColor $ scale 0.15 0.15 $ text (show gold)
+  in pictures [panelBg, coinIcon, goldText]
+
+-- Gold coin icon (8x8 pixel art)
+renderGoldCoinIcon :: Picture
+renderGoldCoinIcon =
+  let pixelSize = 4
+      pixels = [ (-1, -1, "gold"), (0, -1, "gold"), (1, -1, "gold")
+               , (-1, 0, "gold"), (0, 0, "yellow"), (1, 0, "gold")
+               , (-1, 1, "gold"), (0, 1, "gold"), (1, 1, "gold")
+               ]
+      gold = makeColor 1.0 0.84 0.0 1.0
+      yellow = makeColor 1.0 1.0 0.0 1.0
+  in pictures $ map (\(x, y, col) ->
+    translate (x * pixelSize) (y * pixelSize) $
+    color (if col == "gold" then gold else yellow) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
 
 -- ============================================================================
--- Wave Display - Medieval Theme
+-- Level Panel - Parchment Rectangle with LEVEL and WAVE
 -- ============================================================================
 
-renderWaveDisplay :: World -> Picture
-renderWaveDisplay world =
+renderLevelPanel :: World -> Picture
+renderLevelPanel world =
   let ws = waveState world
       level = wsLevel ws
       wave = wsWaveInLevel ws
-      phase = wsPhase ws
-      phaseText = case phase of
-                    InWave -> "⚔ BATTLE ⚔"
-                    BuildPhase t -> "Prepare: " ++ show (round t :: Int) ++ "s"
-                    BossIncoming t -> "👑 BOSS INCOMING: " ++ show (round t :: Int) ++ "s"
-      phaseColor = case phase of
-                     InWave -> makeColor 1.0 0.2 0.2 1.0  -- Red for battle
-                     BuildPhase _ -> makeColor 0.2 1.0 0.2 1.0  -- Green for build
-                     BossIncoming _ -> makeColor 1.0 0.5 0.0 1.0  -- Orange for boss
-      shadowColor = makeColor 0.0 0.0 0.0 0.8
-      renderTextWithShadow txt x y scale' col =
-        pictures
-          [ translate (x + 1) (y - 1) $ color shadowColor $ scale scale' scale' $ text txt
-          , translate x y $ color col $ scale scale' scale' $ text txt
-          ]
-  in pictures
-    [ renderTextWithShadow ("LEVEL " ++ show level ++ " - WAVE " ++ show wave) 0 0 0.16 (makeColor 1.0 1.0 1.0 1.0)
-    , renderTextWithShadow phaseText 0 (-22) 0.14 phaseColor
-    ]
+      panelX = -worldWidth/2 + 120
+      panelY = worldHeight/2 - 140
+      panelWidth = 200
+      panelHeight = 60
+      -- Parchment background
+      parchmentBg = translate panelX panelY $ pictures
+        [ color parchment $ rectangleSolid panelWidth panelHeight
+        , color darkWoodBrown $ rectangleWire panelWidth panelHeight
+        ]
+      -- Level icon (small shield)
+      levelIcon = translate (panelX - 70) panelY $ renderShieldIcon
+      -- Wave icon (pixel water wave)
+      waveIcon = translate (panelX - 70) (panelY - 25) $ renderWaveIcon
+      -- Text
+      levelText = translate (panelX - 20) (panelY + 10) $ color (makeColor 0.2 0.2 0.2 1) $ scale 0.12 0.12 $ text ("LEVEL " ++ show level)
+      waveText = translate (panelX - 20) (panelY - 15) $ color (makeColor 0.2 0.2 0.2 1) $ scale 0.12 0.12 $ text ("WAVE " ++ show wave)
+  in pictures [parchmentBg, levelIcon, waveIcon, levelText, waveText]
+
+-- Shield icon (8x8 pixel art)
+renderShieldIcon :: Picture
+renderShieldIcon =
+  let pixelSize = 4
+      pixels = [ (0, -1, "silver")
+               , (-1, 0, "silver"), (0, 0, "blue"), (1, 0, "silver")
+               , (-1, 1, "silver"), (0, 1, "blue"), (1, 1, "silver")
+               , (0, 2, "silver")
+               ]
+  in pictures $ map (\(x, y, col) ->
+    translate (x * pixelSize) (y * pixelSize) $
+    color (pixelColor col) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
+
+-- Wave icon (8x8 pixel art)
+renderWaveIcon :: Picture
+renderWaveIcon =
+  let pixelSize = 4
+      pixels = [ (-1, 0, "blue"), (0, 0, "light blue"), (1, 0, "blue")
+               , (-1, 1, "light blue"), (0, 1, "blue"), (1, 1, "light blue")
+               ]
+  in pictures $ map (\(x, y, col) ->
+    translate (x * pixelSize) (y * pixelSize) $
+    color (pixelColor col) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
 
 -- ============================================================================
--- Ability Display - Medieval Theme
+-- Castle HP Bar - Stone-Bordered Health Bar
 -- ============================================================================
 
-renderAbilityDisplay :: World -> Picture
-renderAbilityDisplay world =
-  let abilities' = M.elems (abilities world)
-      renders = zipWith renderAbility [0..] abilities'
-  in pictures renders
-
-renderAbility :: Int -> AbilityState -> Picture
-renderAbility idx ability =
-  let x = fromIntegral idx * 70
-      cooldown = abilityCooldown ability
-      active = abilityActive ability
-      abilityColor = if active then makeColor 0.2 1.0 0.2 1.0
-                     else if cooldown > 0 then makeColor 0.8 0.2 0.2 1.0
-                     else makeColor 0.8 0.8 0.8 1.0
-      name = case abilityType ability of
-               Firestorm -> "Q: FIRE"
-               FreezeField -> "W: FROST"
-               RepairWalls -> "E: REPAIR"
-               TimeSlow -> "R: CHRONO"
-      borderColor = if cooldown > 0 then makeColor 0.5 0 0 1.0 else makeColor 0.5 0.5 0.5 1.0
-  in translate x 0 $ pictures
-    [ color borderColor $ rectangleWire 50 40
-    , color abilityColor $ scale 0.09 0.09 $ text name
-    , if cooldown > 0
-      then translate 0 (-18) $ color (makeColor 1.0 0.2 0.2 1.0) $ scale 0.08 0.08 $ text (show (round cooldown) ++ "s")
-      else blank
-    ]
+renderCastleHPBar :: World -> Picture
+renderCastleHPBar world =
+  let c = castle world
+      currentHP = castleHP c
+      maxHP = Types.castleMaxHP c
+      ratio = currentHP / maxHP
+      barX = worldWidth/2 - 200
+      barY = worldHeight/2 - 80
+      barWidth = 300  -- Reduced from 400
+      barHeight = 20  -- Reduced from 30
+      -- Determine color based on health state
+      (barColor, state) = if ratio > 0.7 then (makeColor 0.2 0.8 0.2 1, "healthy")
+                         else if ratio > 0.3 then (makeColor 1.0 0.8 0.0 1, "damaged")
+                         else (makeColor 0.8 0.2 0.2 1, "critical")
+      -- Stone border
+      stoneBorder = translate barX barY $ pictures
+        [ color darkStoneGray $ rectangleSolid (barWidth + 6) (barHeight + 6)
+        , color stoneGray $ rectangleSolid barWidth barHeight
+        ]
+      -- Health fill
+      healthFill = translate (barX - (barWidth * (1 - ratio) / 2)) barY $
+        color barColor $ rectangleSolid (barWidth * ratio) barHeight
+      -- Text
+      hpText = translate (barX - 140) barY $ color (makeColor 1.0 1.0 1.0 1) $ scale 0.10 0.10 $ text "CASTLE"
+      hpValue = translate (barX + 160) barY $ color (makeColor 1.0 1.0 1.0 1) $ scale 0.09 0.09 $ text (show (round currentHP) ++ "/" ++ show (round maxHP))
+  in pictures [stoneBorder, healthFill, hpText, hpValue]
 
 -- ============================================================================
--- Build Mode Display - Medieval Theme
+-- Tower Hotbar - Wooden Framed Button Icons
+-- ============================================================================
+
+renderTowerHotbar :: World -> Picture
+renderTowerHotbar world =
+  let hotbarX = -worldWidth/2 + 120
+      hotbarY = worldHeight/2 - 220
+      towerTypes = [ArrowTower, BallistaTower, FireTower, TeslaTower, BombardTower]
+      towerIcons = zipWith (\idx tt -> renderTowerButton (hotbarX + fromIntegral idx * 70) hotbarY tt (inputState world)) [0..] towerTypes
+  in pictures towerIcons
+
+renderTowerButton :: Float -> Float -> TowerType -> InputState -> Picture
+renderTowerButton x y towerType inputState =
+  let buttonWidth = 60
+      buttonHeight = 60
+      isSelected = case buildMode inputState of
+                    PlaceTower tt -> tt == towerType
+                    _ -> False
+      -- Wooden frame
+      frame = translate x y $ pictures
+        [ color (if isSelected then darkWoodBrown else woodBrown) $ rectangleSolid buttonWidth buttonHeight
+        , color darkWoodBrown $ rectangleWire buttonWidth buttonHeight
+        ]
+      -- Tower icon (16x16 pixel art)
+      icon = translate x y $ renderTowerIcon towerType
+      -- Key label
+      keyLabel = case towerType of
+                  ArrowTower -> "4"
+                  BallistaTower -> "5"
+                  FireTower -> "6"
+                  TeslaTower -> "7"
+                  BombardTower -> "8"
+                  _ -> ""
+      keyText = translate (x - 20) (y - 30) $ color (makeColor 1.0 1.0 1.0 1) $ scale 0.1 0.1 $ text keyLabel
+  in pictures [frame, icon, keyText]
+
+-- Tower icons (16x16 pixel art simplified)
+renderTowerIcon :: TowerType -> Picture
+renderTowerIcon tt =
+  let pixelSize = 3
+      pixels = case tt of
+                ArrowTower -> [(-2, -2, "brown"), (0, -2, "brown"), (2, -2, "brown"), (0, 0, "tan"), (0, 2, "brown")]
+                BallistaTower -> [(-1, -2, "brown"), (0, -2, "silver"), (1, -2, "brown"), (0, 0, "brown"), (0, 2, "brown")]
+                FireTower -> [(-1, -2, "dark gray"), (0, -2, "red"), (1, -2, "dark gray"), (0, 0, "orange"), (0, 2, "red")]
+                TeslaTower -> [(-1, -2, "gray"), (0, -2, "blue"), (1, -2, "gray"), (0, 0, "white"), (0, 2, "blue")]
+                BombardTower -> [(-2, -1, "gray"), (0, -1, "black"), (2, -1, "gray"), (0, 1, "black")]
+                _ -> []
+  in pictures $ map (\(px, py, col) ->
+    translate (px * pixelSize) (py * pixelSize) $
+    color (pixelColor col) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
+
+-- ============================================================================
+-- Trap Hotbar - Wooden Framed Buttons for Traps
+-- ============================================================================
+
+renderTrapHotbar :: World -> Picture
+renderTrapHotbar world =
+  let hotbarX = -worldWidth/2 + 120
+      hotbarY = worldHeight/2 - 300
+      trapTypes = [SpikeTrap, FreezeTrap, FirePitTrap, MagicSnareTrap, ExplosiveBarrel]
+      trapIcons = zipWith (\idx tt -> renderTrapButton (hotbarX + fromIntegral idx * 70) hotbarY tt (inputState world)) [0..] trapTypes
+  in pictures trapIcons
+
+renderTrapButton :: Float -> Float -> TrapType -> InputState -> Picture
+renderTrapButton x y trapType inputState =
+  let buttonWidth = 60
+      buttonHeight = 60
+      isSelected = case buildMode inputState of
+                    PlaceTrap tt -> tt == trapType
+                    _ -> False
+      -- Wooden frame
+      frame = translate x y $ pictures
+        [ color (if isSelected then darkWoodBrown else woodBrown) $ rectangleSolid buttonWidth buttonHeight
+        , color darkWoodBrown $ rectangleWire buttonWidth buttonHeight
+        ]
+      -- Trap icon (16x16 pixel art)
+      icon = translate x y $ renderTrapIcon trapType
+      -- Key label
+      keyLabel = case trapType of
+                  SpikeTrap -> "Z"
+                  FreezeTrap -> "X"
+                  FirePitTrap -> "C"
+                  MagicSnareTrap -> "V"
+                  ExplosiveBarrel -> "B"
+      keyText = translate (x - 20) (y - 30) $ color (makeColor 1.0 1.0 1.0 1) $ scale 0.1 0.1 $ text keyLabel
+  in pictures [frame, icon, keyText]
+
+-- Trap icons (16x16 pixel art simplified)
+renderTrapIcon :: TrapType -> Picture
+renderTrapIcon tt =
+  let pixelSize = 3
+      pixels = case tt of
+                SpikeTrap -> [(-1, -1, "gray"), (0, -1, "dark gray"), (1, -1, "gray"), (-1, 0, "dark gray"), (0, 0, "silver"), (1, 0, "dark gray"), (-1, 1, "gray"), (0, 1, "dark gray"), (1, 1, "gray")]
+                FreezeTrap -> [(-1, -1, "blue"), (0, -1, "light blue"), (1, -1, "blue"), (-1, 0, "light blue"), (0, 0, "white"), (1, 0, "light blue"), (-1, 1, "blue"), (0, 1, "light blue"), (1, 1, "blue")]
+                FirePitTrap -> [(-1, -1, "dark brown"), (0, -1, "orange"), (1, -1, "dark brown"), (-1, 0, "orange"), (0, 0, "yellow"), (1, 0, "orange"), (-1, 1, "dark brown"), (0, 1, "orange"), (1, 1, "dark brown")]
+                MagicSnareTrap -> [(-1, -1, "purple"), (0, -1, "magenta"), (1, -1, "purple"), (-1, 0, "magenta"), (0, 0, "purple"), (1, 0, "magenta"), (-1, 1, "purple"), (0, 1, "magenta"), (1, 1, "purple")]
+                ExplosiveBarrel -> [(-1, -1, "brown"), (0, -1, "dark brown"), (1, -1, "brown"), (-1, 0, "dark brown"), (0, 0, "red"), (1, 0, "dark brown"), (-1, 1, "brown"), (0, 1, "dark brown"), (1, 1, "brown"), (0, 2, "red")]
+                _ -> []
+  in pictures $ map (\(px, py, col) ->
+    translate (px * pixelSize) (py * pixelSize) $
+    color (pixelColor col) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
+
+-- ============================================================================
+-- Build Mode Display
 -- ============================================================================
 
 renderBuildModeDisplay :: World -> Picture
@@ -110,48 +316,68 @@ renderBuildModeDisplay world =
     NoBuild -> blank
     PlaceTower tt -> 
       let goldAvail = resGold (resources world)
-          cost = towerCost tt
+          cost = C.towerCost tt
           canAfford = goldAvail >= cost
-          color' = if canAfford then makeColor 0.2 1.0 0.2 1.0 else makeColor 1.0 0.2 0.2 1.0
-      in pictures
-        [ color color' $ scale 0.13 0.13 $ text $ "TOWER: " ++ show tt ++ " (" ++ show cost ++ "g)"
-        ]
+          panelX = worldWidth/2 - 200
+          panelY = -worldHeight/2 + 100
+          -- Parchment tooltip panel
+          tooltip = translate panelX panelY $ pictures
+            [ color parchment $ rectangleSolid 300 80
+            , color darkWoodBrown $ rectangleWire 300 80
+            , translate (panelX - 120) panelY $ color (if canAfford then (makeColor 0.2 0.6 0.2 1) else (makeColor 0.8 0.2 0.2 1)) $ scale 0.12 0.12 $ text $ "TOWER: " ++ show tt ++ " (" ++ show cost ++ "g)"
+            ]
+      in tooltip
     PlaceTrap tt -> 
       let goldAvail = resGold (resources world)
-          cost = trapCost tt
+          cost = C.trapCost tt
           canAfford = goldAvail >= cost
-          color' = if canAfford then makeColor 1.0 0.6 0.2 1.0 else makeColor 1.0 0.2 0.2 1.0
-      in pictures
-        [ color color' $ scale 0.13 0.13 $ text $ "TRAP: " ++ show tt ++ " (" ++ show cost ++ "g)"
-        ]
-    UpgradeMode -> color (makeColor 1.0 0.8 0.0 1.0) $ scale 0.13 0.13 $ text "UPGRADE MODE"
+          panelX = worldWidth/2 - 200
+          panelY = -worldHeight/2 + 100
+          -- Parchment tooltip panel
+          tooltip = translate panelX panelY $ pictures
+            [ color parchment $ rectangleSolid 300 80
+            , color darkWoodBrown $ rectangleWire 300 80
+            , translate (panelX - 120) panelY $ color (if canAfford then (makeColor 0.2 0.6 0.2 1) else (makeColor 0.8 0.2 0.2 1)) $ scale 0.12 0.12 $ text $ "TRAP: " ++ show tt ++ " (" ++ show cost ++ "g)"
+            ]
+      in tooltip
+    UpgradeMode -> 
+      let panelX = worldWidth/2 - 200
+          panelY = -worldHeight/2 + 100
+          tooltip = translate panelX panelY $ pictures
+            [ color parchment $ rectangleSolid 250 60
+            , color darkWoodBrown $ rectangleWire 250 60
+            , translate (panelX - 100) panelY $ color (makeColor 0.8 0.6 0.0 1) $ scale 0.12 0.12 $ text "UPGRADE MODE"
+            ]
+      in tooltip
 
 -- ============================================================================
--- Game Status - Medieval Theme
+-- Game Status
 -- ============================================================================
 
 renderGameStatus :: World -> Picture
 renderGameStatus world
   | isGameOver world && isVictory world =
-      color (makeColor 0.2 1.0 0.2 1.0) $ scale 0.25 0.25 $ text "⚔ VICTORY ⚔"
+      let panelX = 0
+          panelY = 0
+      in translate panelX panelY $ pictures
+        [ color parchment $ rectangleSolid 400 150
+        , color darkWoodBrown $ rectangleWire 400 150
+        , translate (panelX - 150) panelY $ color (makeColor 0.2 0.8 0.2 1) $ scale 0.3 0.3 $ text "VICTORY"
+        ]
   | isGameOver world =
-      color (makeColor 1.0 0.2 0.2 1.0) $ scale 0.25 0.25 $ text "☠ DEFEAT ☠"
+      let panelX = 0
+          panelY = 0
+      in translate panelX panelY $ pictures
+        [ color parchment $ rectangleSolid 400 150
+        , color darkWoodBrown $ rectangleWire 400 150
+        , translate (panelX - 120) panelY $ color (makeColor 0.8 0.2 0.2 1) $ scale 0.3 0.3 $ text "DEFEAT"
+        ]
   | isPaused world =
-      color (makeColor 1.0 0.8 0.0 1.0) $ scale 0.18 0.18 $ text "⏸ PAUSED ⏸"
+      let panelX = 0
+          panelY = 0
+      in translate panelX panelY $ pictures
+        [ color parchment $ rectangleSolid 300 100
+        , color darkWoodBrown $ rectangleWire 300 100
+        , translate (panelX - 100) panelY $ color (makeColor 0.8 0.6 0.0 1) $ scale 0.2 0.2 $ text "PAUSED"
+        ]
   | otherwise = blank
-
--- ============================================================================
--- Upgrade Info Display
--- ============================================================================
-
-renderUpgradeInfo :: World -> Picture
-renderUpgradeInfo world =
-  let level = wsLevel (waveState world)
-      upgradeUnlockLevel = 3
-      canUpgrade = level >= upgradeUnlockLevel
-      color' = if canUpgrade then makeColor 0.2 1.0 0.2 1.0 else makeColor 0.5 0.5 0.5 1.0
-  in pictures
-    [ if canUpgrade
-      then color color' $ scale 0.12 0.12 $ text "UPGRADES AVAILABLE - Press U to Upgrade Towers"
-      else color color' $ scale 0.11 0.11 $ text $ "Upgrades available at Level " ++ show upgradeUnlockLevel
-    ]

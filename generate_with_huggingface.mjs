@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
-import axios from 'axios';
+import { HfInference } from '@huggingface/inference';
 import assetsConfig from './assetsConfigAnimated.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +19,10 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-const HF_API_URL = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0';
+const MODEL_NAME = 'stabilityai/stable-diffusion-xl-base-1.0';
+
+// Initialize Hugging Face Inference client
+const hf = new HfInference(HF_API_KEY);
 
 if (!HF_API_KEY) {
   console.error('❌ ERROR: HUGGINGFACE_API_KEY environment variable not set!');
@@ -30,6 +33,31 @@ if (!HF_API_KEY) {
 
 // Base directory for assets
 const assetsBaseDir = path.join(__dirname, 'assets', 'images');
+
+/**
+ * Get optimal sprite dimensions based on category
+ * Returns {width, height} for API generation and {targetWidth, targetHeight} for final output
+ */
+function getSpriteDimensions(category) {
+  // Generate at higher resolution for better quality, then resize to game-optimized sizes
+  // Reduced dimensions for better performance and smaller file sizes
+  const dimensions = {
+    // Small units: 48x48 final size (optimized from 64x64)
+    enemies: { apiWidth: 512, apiHeight: 512, targetWidth: 48, targetHeight: 48 },
+    // Towers: 96x96 final size (optimized from 128x128)
+    towers: { apiWidth: 512, apiHeight: 512, targetWidth: 96, targetHeight: 96 },
+    // Traps: 48x48 final size (optimized from 64x64)
+    traps: { apiWidth: 512, apiHeight: 512, targetWidth: 48, targetHeight: 48 },
+    // Bosses: 128x128 final size (optimized from 256x256)
+    bosses: { apiWidth: 768, apiHeight: 768, targetWidth: 128, targetHeight: 128 },
+    // Environment: 96x96 final size (optimized from 128x128)
+    environment: { apiWidth: 512, apiHeight: 512, targetWidth: 96, targetHeight: 96 },
+    // Projectiles: 24x24 final size (optimized from 32x32)
+    projectiles: { apiWidth: 256, apiHeight: 256, targetWidth: 24, targetHeight: 24 }
+  };
+  
+  return dimensions[category] || { apiWidth: 512, apiHeight: 512, targetWidth: 48, targetHeight: 48 };
+}
 
 /**
  * Create directory structure if it doesn't exist
@@ -55,58 +83,63 @@ async function generateSpriteFrame(category, name, animation, frameIndex, totalF
   }
 
   try {
-    console.log(`🎨 Generating ${category}/${name}/${animation}/frame_${frameNumber}/${totalFrames}...`);
+    const dims = getSpriteDimensions(category);
+    console.log(`🎨 Generating ${category}/${name}/${animation}/frame_${frameNumber}/${totalFrames} (${dims.targetWidth}x${dims.targetHeight})...`);
     
     // Enhanced prompt with frame information
     const enhancedPrompt = `${prompt}, frame ${frameNumber} of ${totalFrames} animation sequence`;
     const negativePrompt = "3D, perspective, isometric, low quality, blurry, distorted, watermark, text, signature";
     
-    // Call Hugging Face Inference API
-    const response = await axios.post(
-      HF_API_URL,
-      {
-        inputs: enhancedPrompt,
-        parameters: {
-          negative_prompt: negativePrompt,
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
-          width: 1024,
-          height: 1024
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        responseType: 'arraybuffer',
-        timeout: 60000  // 60 second timeout
+    // Call Hugging Face Inference API using official library
+    const imageBlob = await hf.textToImage({
+      model: MODEL_NAME,
+      inputs: enhancedPrompt,
+      parameters: {
+        negative_prompt: negativePrompt,
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+        width: dims.apiWidth,
+        height: dims.apiHeight
       }
-    );
+    });
 
-    if (!response.data) {
+    if (!imageBlob) {
       throw new Error('Invalid response from Hugging Face API');
     }
 
-    // Hugging Face returns image directly as binary
-    const imageBuffer = Buffer.from(response.data);
+    // Convert blob to buffer
+    const arrayBuffer = await imageBlob.arrayBuffer();
+    const imageBuffer = Buffer.from(arrayBuffer);
     
-    // Process with sharp: trim transparent borders and save
+    // Process with sharp: trim transparent borders, resize to optimal game size, and save
+    // Resize to target dimensions, using 'contain' to fit within bounds while maintaining aspect ratio
+    // Optimize for smaller file sizes with better compression
     await sharp(imageBuffer)
       .trim({ threshold: 10 })
-      .png()
+      .resize(dims.targetWidth, dims.targetHeight, {
+        fit: 'contain',
+        withoutEnlargement: false,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      })
+      .png({ 
+        compressionLevel: 9, 
+        quality: 90,  // Reduced from 100 for smaller file size
+        effort: 7,    // Compression effort (0-10, higher = better compression)
+        palette: true  // Use palette for better compression on sprites
+      })
       .toFile(outputPath);
     
-    console.log(`✅ Generated ${category}/${name}/${animation}/frame_${frameNumber}.png`);
+    // Get final dimensions for logging
+    const metadata = await sharp(outputPath).metadata();
+    console.log(`✅ Generated ${category}/${name}/${animation}/frame_${frameNumber}.png (${metadata.width}x${metadata.height})`);
     
     // Rate limiting: wait 2 seconds between requests
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     return true;
   } catch (error) {
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
+    if (error.status) {
+      const status = error.status;
       
       if (status === 503) {
         // Model is loading, wait and retry
@@ -121,7 +154,7 @@ async function generateSpriteFrame(category, name, animation, frameIndex, totalF
         console.error(`❌ Invalid API key. Check your HUGGINGFACE_API_KEY`);
         return false;
       } else {
-        console.error(`❌ API Error (${status}):`, data?.toString().substring(0, 200) || error.message);
+        console.error(`❌ API Error (${status}):`, error.message?.substring(0, 200) || 'Unknown error');
       }
     } else {
       console.error(`❌ Error generating ${category}/${name}/${animation}/frame_${frameNumber}:`, error.message);

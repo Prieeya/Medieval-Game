@@ -14,6 +14,24 @@ type Vec2 = (Float, Float)
 type EntityId = Int
 
 -- ============================================================================
+-- Animation System
+-- ============================================================================
+
+data AnimationState = AnimationState
+  { animType :: AnimationType
+  , animFrame :: Int  -- Current frame index (0-based)
+  , animTime :: Float  -- Time accumulator for frame timing
+  } deriving (Show, Generic)
+
+data AnimationType
+  = AnimIdle
+  | AnimAttack
+  | AnimMove
+  | AnimDeath
+  | AnimFlying  -- For projectiles
+  deriving (Show, Eq, Generic)
+
+-- ============================================================================
 -- Enemy Types
 -- ============================================================================
 
@@ -76,6 +94,8 @@ data Enemy = Enemy
   , enemyAttackCooldown :: Float
   , enemyHitFlash :: Float
   , enemySpawnSide :: SpawnSide
+  , enemyAnimState :: AnimationState  -- Animation state and frame
+  , enemyDeathTimer :: Float  -- Timer for death animation before removal
   } deriving (Show, Generic)
 
 data SpawnSide = LeftSide | CenterSide | RightSide
@@ -110,6 +130,8 @@ data Tower = Tower
   , towerDamageDealt :: Float
   , towerHP :: Float
   , towerMaxHP :: Float
+  , towerAnimState :: AnimationState  -- Animation state and frame
+  , towerDeathTimer :: Float  -- Timer for death animation before removal
   } deriving (Show, Generic)
 
 -- ============================================================================
@@ -131,6 +153,7 @@ data Trap = Trap
   , trapTriggered :: Bool
   , trapActiveTime :: Float
   , trapAffectedEnemies :: S.Set EntityId
+  , trapAnimState :: AnimationState  -- Animation state and frame
   } deriving (Show, Generic)
 
 -- ============================================================================
@@ -182,6 +205,7 @@ data Projectile = Projectile
   , projectilePiercing :: Bool
   , projectileAoERadius :: Float
   , projectileHitEnemies :: S.Set EntityId
+  , projectileAnimState :: AnimationState  -- Animation state for flying projectiles
   } deriving (Show, Generic)
 
 -- ============================================================================
@@ -217,6 +241,23 @@ data Castle = Castle
   , castleHP :: Float
   , castleMaxHP :: Float
   , castleSize :: Float
+  } deriving (Show, Generic)
+
+-- ============================================================================
+-- Environmental Decorations
+-- ============================================================================
+
+data DecoType
+  = TreeSmall
+  | TreeLarge
+  | Bush
+  | Rock
+  deriving (Show, Eq, Ord, Generic)
+
+data Decoration = Decoration
+  { decoId :: EntityId
+  , decoType :: DecoType
+  , decoPos :: Vec2
   } deriving (Show, Generic)
 
 -- ============================================================================
@@ -377,6 +418,7 @@ data World = World
   , towers :: M.Map EntityId Tower
   , traps :: M.Map EntityId Trap
   , projectiles :: M.Map EntityId Projectile
+  , decorations :: M.Map EntityId Decoration
   , visualEffects :: [VisualEffect]
   , resources :: Resources
   , abilities :: M.Map AbilityType AbilityState

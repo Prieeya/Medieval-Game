@@ -37,6 +37,8 @@ executable medieval-siege
                     , Rendering.RenderWorld
                     , Rendering.RenderUI
                     , Rendering.RenderDebug
+                    , Rendering.RenderUtils
+                    , Rendering.PixelArt
                     , Rendering.SpriteAnimation
                     , Physics.PhysicsCore
                     , Physics.Collision

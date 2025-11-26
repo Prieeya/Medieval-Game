@@ -116,7 +116,7 @@ handleEnemyTrapCollisions world =
 
 checkEnemyTraps :: (World, [EntityId]) -> Enemy -> [Trap] -> (World, [EntityId])
 checkEnemyTraps (world, affected) enemy traps =
-  let nearbyTraps = filter (\t -> distance (trapPos t) (enemyPos enemy) < 30) traps
+  let nearbyTraps = filter (\t -> distance (trapPos t) (enemyPos enemy) < 25) traps  -- Reduced from 30 to match smaller trap size
       (world', affected') = foldl (\acc trap -> triggerTrapOnEnemy acc enemy trap) (world, affected) nearbyTraps
   in (world', affected')
 

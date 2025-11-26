@@ -8,7 +8,8 @@
     "generate:hf": "node generate_with_huggingface.mjs",
     "generate:single": "node generate_single_animation.mjs",
     "test-api": "node test_api_connection.mjs",
-    "test-hf": "node test_huggingface.mjs"
+    "test-hf": "node test_huggingface.mjs",
+    "optimize": "node optimize_sprites.mjs"
   },
   "keywords": [
     "game",
@@ -19,6 +20,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@huggingface/inference": "^4.13.4",
     "axios": "^1.13.2",
     "dotenv": "^16.3.1",
     "sharp": "^0.33.0"

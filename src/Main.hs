@@ -9,6 +9,9 @@ import Input.InputHandler
 import Rendering.RenderWorld
 import Rendering.RenderUI
 import Rendering.RenderDebug
+import Assets (loadAllSprites)
+import Rendering.SpriteAnimation (globalAssets)
+import Data.IORef (writeIORef)
 
 -- ============================================================================
 -- Main Entry Point
@@ -19,6 +22,11 @@ main = do
   putStrLn "==================================="
   putStrLn "Medieval Siege Defense"
   putStrLn "==================================="
+  putStrLn ""
+  putStrLn "Loading assets..."
+  assets <- loadAllSprites
+  writeIORef globalAssets (Just assets)
+  putStrLn "Assets loaded!"
   putStrLn ""
   putStrLn "Controls:"
   putStrLn "  4-0: Select tower type to build"

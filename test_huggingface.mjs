@@ -5,7 +5,7 @@
  */
 
 import 'dotenv/config';
-import axios from 'axios';
+import { HfInference } from '@huggingface/inference';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
@@ -15,7 +15,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-const HF_API_URL = 'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0';
+const MODEL_NAME = 'stabilityai/stable-diffusion-xl-base-1.0';
+
+// Initialize Hugging Face Inference client
+const hf = new HfInference(HF_API_KEY);
 
 if (!HF_API_KEY) {
   console.error('❌ ERROR: HUGGINGFACE_API_KEY not found in .env file');
@@ -36,29 +39,19 @@ async function testConnection() {
     const testPrompt = "Top-down 2D orthographic game sprite, realistic medieval style, wooden arrow, transparent background, no perspective, no 3D, slightly stylized, test frame";
     const negativePrompt = "3D, perspective, isometric, low quality, blurry, distorted, watermark, text, signature";
     
-    const response = await axios.post(
-      HF_API_URL,
-      {
-        inputs: testPrompt,
-        parameters: {
-          negative_prompt: negativePrompt,
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
-          width: 1024,
-          height: 1024
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        responseType: 'arraybuffer',
-        timeout: 120000  // 2 minute timeout for first request
+    const imageBlob = await hf.textToImage({
+      model: MODEL_NAME,
+      inputs: testPrompt,
+      parameters: {
+        negative_prompt: negativePrompt,
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+        width: 1024,
+        height: 1024
       }
-    );
+    });
 
-    if (response.data) {
+    if (imageBlob) {
       // Save test image
       const testDir = path.join(__dirname, 'assets', 'images', 'test');
       if (!fs.existsSync(testDir)) {
@@ -66,7 +59,8 @@ async function testConnection() {
       }
       const testPath = path.join(testDir, 'test_sprite_hf.png');
       
-      const imageBuffer = Buffer.from(response.data);
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      const imageBuffer = Buffer.from(arrayBuffer);
       await sharp(imageBuffer)
         .trim({ threshold: 10 })
         .png()
@@ -83,11 +77,10 @@ async function testConnection() {
       return false;
     }
   } catch (error) {
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
+    if (error.status) {
+      const status = error.status;
       
-      console.error('❌ API Error:', status, error.response.statusText);
+      console.error('❌ API Error:', status, error.statusText || '');
       
       if (status === 503) {
         console.error('   → Model is loading. This is normal for first request.');
@@ -100,13 +93,13 @@ async function testConnection() {
         console.error('   → Rate limit exceeded. Free tier has limits.');
         console.error('   → Wait a few minutes and try again.');
       } else {
-        console.error('   Response:', data?.toString().substring(0, 200) || 'No details');
+        console.error('   Error:', error.message?.substring(0, 200) || 'No details');
       }
     } else if (error.code === 'ECONNABORTED') {
       console.error('❌ Request timeout. Model may be loading.');
       console.error('   → This is normal for first request. Try again in 30 seconds.');
     } else {
-      console.error('❌ Network Error:', error.message);
+      console.error('❌ Error:', error.message || 'Unknown error');
     }
     return false;
   }

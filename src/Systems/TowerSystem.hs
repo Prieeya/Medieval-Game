@@ -98,6 +98,7 @@ createProjectileFrom tower targetId time =
                           TeslaTower -> (False, lightningChainRange)  -- Chain lightning
                           BombardTower -> (False, 80)  -- AoE burst
                           _ -> (False, 0)
+      initialAnim = AnimationState { animType = AnimFlying, animFrame = 0, animTime = 0 }
   in Projectile
     { projectileId = towerId tower * 10000 + round time
     , projectileType = pType
@@ -110,6 +111,7 @@ createProjectileFrom tower targetId time =
     , projectilePiercing = piercing
     , projectileAoERadius = aoe
     , projectileHitEnemies = S.empty
+    , projectileAnimState = initialAnim
     }
 
 towerTypeToProjectileType :: TowerType -> ProjectileType

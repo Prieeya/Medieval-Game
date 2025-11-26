@@ -16,6 +16,7 @@ import qualified Systems.DamageSystem as DamageSystem
 import qualified Systems.AbilitySystem as AbilitySystem
 import qualified Systems.CastleSystem as CastleSystem
 import qualified Systems.FortSystem as FortSystem
+import qualified Rendering.SpriteAnimation
 import qualified Data.Map.Strict as M
 
 -- ============================================================================
@@ -65,7 +66,17 @@ updateEnemy dt world enemy =
   let enemy1 = FSM.updateEnemyAI dt world enemy
       enemy2 = Physics.moveEnemy dt world enemy1
       enemy3 = updateEnemyEffects dt enemy2
-  in enemy3
+      -- Update animation state
+      enemy4 = if enemyHP enemy3 <= 0 && enemyAIState enemy3 /= Dead
+               then enemy3 { enemyAIState = Dead, enemyAnimState = (enemyAnimState enemy3) { animType = AnimDeath, animFrame = 0 } }
+               else enemy3
+      -- Update animation based on AI state
+      updatedAnim = Rendering.SpriteAnimation.updateEnemyAnimation dt (enemyAIState enemy4) (enemyAnimState enemy4)
+      -- Update death timer
+      deathTimer = if enemyAIState enemy4 == Dead
+                   then enemyDeathTimer enemy4 + dt
+                   else 0
+  in enemy4 { enemyAnimState = updatedAnim, enemyDeathTimer = deathTimer }
 
 updateEnemyEffects :: Float -> Enemy -> Enemy
 updateEnemyEffects dt enemy =
@@ -98,7 +109,11 @@ updateTower dt world tower =
 
 updateTraps :: Float -> World -> World
 updateTraps dt world =
-  TrapSystem.updateTraps dt world
+  let traps' = M.map (\t ->
+        let updatedAnim = Rendering.SpriteAnimation.updateTrapAnimation dt (trapTriggered t) (trapAnimState t)
+        in t { trapAnimState = updatedAnim }
+        ) (traps world)
+  in (TrapSystem.updateTraps dt world) { traps = traps' }
 
 -- ============================================================================
 -- Projectile Updates
@@ -106,7 +121,11 @@ updateTraps dt world =
 
 updateProjectiles :: Float -> World -> World
 updateProjectiles dt world =
-  let projectiles' = M.map (Projectiles.updateProjectile dt) (projectiles world)
+  let projectiles' = M.map (\p ->
+        let p' = Projectiles.updateProjectile dt p
+            updatedAnim = Rendering.SpriteAnimation.updateAnimationState dt (projectileAnimState p')
+        in p' { projectileAnimState = updatedAnim }
+        ) (projectiles world)
       projectiles'' = M.filter (\p -> projectileLifetime p > 0) projectiles'
   in world { projectiles = projectiles'' }
 
@@ -135,14 +154,20 @@ applyDamage world = DamageSystem.applyQueuedDamage world
 cleanupDead :: World -> World
 cleanupDead world =
   let (enemies', gold) = cleanupDeadEnemies (enemies world)
+      -- Remove enemies only after death animation completes (1 second)
+      enemies'' = M.filter (\e -> enemyAIState e /= Dead || enemyDeathTimer e < 1.0) enemies'
+      -- Remove towers only after death animation completes
+      towers' = M.filter (\t -> towerHP t > 0 || towerDeathTimer t < 1.0) (towers world)
       projectiles' = M.filter (\p -> projectileLifetime p > 0) (projectiles world)
       resources' = (resources world) { resGold = resGold (resources world) + gold }
-  in world { enemies = enemies', projectiles = projectiles', resources = resources' }
+  in world { enemies = enemies'', towers = towers', projectiles = projectiles', resources = resources' }
 
 cleanupDeadEnemies :: M.Map EntityId Enemy -> (M.Map EntityId Enemy, Int)
 cleanupDeadEnemies enemiesMap =
-  let (alive, dead) = M.partition (\e -> enemyHP e > 0) enemiesMap
-      goldEarned = sum $ map (enemyGoldValue . enemyType) $ M.elems dead
+  let -- Only count enemies that have completed death animation or are truly dead
+      (alive, dead) = M.partition (\e -> enemyHP e > 0 && enemyAIState e /= Dead) enemiesMap
+      -- Count gold only from enemies that died (not just in death animation)
+      goldEarned = sum $ map (enemyGoldValue . enemyType) $ M.elems $ M.filter (\e -> enemyHP e <= 0 && enemyDeathTimer e >= 1.0) enemiesMap
   in (alive, goldEarned)
 
 -- ============================================================================

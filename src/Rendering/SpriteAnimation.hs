@@ -1,190 +1,245 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Rendering.SpriteAnimation where
 
 import Graphics.Gloss
-import Types
-import qualified Assets
+import Types (AnimationType(..), AnimationState(..), UnitType(..), TowerType(..), TrapType(..), ProjectileType(..), EnemyAIState(..))
+import Rendering.PixelArt (enemyStateToAnimation, towerStateToAnimation, pixelColor, drawPixelSprite)
+import qualified Rendering.PixelArt
+import Assets (getTowerSpritePath, getEnemySpritePath, getTrapSpritePath, getProjectileSpritePath, getSprite, Assets(..))
+import Constants (enemyBaseSize, towerBaseSize, projectileBaseSize)
 import System.IO.Unsafe (unsafePerformIO)
-import Data.IORef (newIORef, readIORef, writeIORef, IORef)
-import qualified Data.Map.Strict as Map
+import Data.IORef
 import Graphics.Gloss.Juicy (loadJuicyPNG)
-import System.FilePath ((</>))
 
--- Animation state for entities
-data AnimationState = AnimationState
-  { animCurrentFrame :: Int
-  , animFrameCount :: Int
-  , animTimeAccumulator :: Float
-  , animFPS :: Float  -- Frames per second for animation
-  }
+-- ============================================================================
+-- Global Assets Cache
+-- ============================================================================
 
--- Animation type
-data AnimationType
-  = AnimIdle
-  | AnimAttack
-  | AnimDeath
-  | AnimMove
-  deriving (Eq, Show)
+{-# NOINLINE globalAssets #-}
+globalAssets :: IORef (Maybe Assets)
+globalAssets = unsafePerformIO $ newIORef Nothing
 
--- Sprite cache for loaded images
-{-# NOINLINE spriteCacheRef #-}
-spriteCacheRef :: IORef (Map.Map String Picture)
-spriteCacheRef = unsafePerformIO $ do
-  Assets.ensureAssets
-  ref <- newIORef Map.empty
-  return ref
-
--- Get or load a sprite frame
-getSpriteFrame :: String -> FilePath -> Picture -> Picture
-getSpriteFrame key fp fallback = unsafePerformIO $ do
-  m <- readIORef spriteCacheRef
-  case Map.lookup key m of
-    Just p -> return p
+-- Get or load sprite
+getSpriteFromCache :: FilePath -> Maybe Picture
+getSpriteFromCache path = unsafePerformIO $ do
+  assetsRef <- readIORef globalAssets
+  case assetsRef of
+    Just assets -> return $ getSprite path assets
     Nothing -> do
-      mp <- loadJuicyPNG fp
-      let p = case mp of
-                Just pic -> pic
-                Nothing -> fallback
-      writeIORef spriteCacheRef (Map.insert key p m)
-      return p
+      -- Try to load directly
+      result <- loadJuicyPNG path
+      return result
 
--- Get animation frame number based on time
-getAnimationFrame :: Float -> Int -> Float -> Int
-getAnimationFrame timeAccumulator frameCount fps =
-  let frameTime = 1.0 / fps
-      frameIndex = floor (timeAccumulator / frameTime) `mod` frameCount
-  in frameIndex + 1  -- Frames are 1-indexed (frame_01, frame_02, etc.)
+-- ============================================================================
+-- Animation Frame Configuration
+-- ============================================================================
 
--- Get sprite path for unit type
-unitTypeToSpriteName :: UnitType -> String
-unitTypeToSpriteName GruntRaider = "grunt_raider"
-unitTypeToSpriteName BruteCrusher = "brute_crusher"
-unitTypeToSpriteName Direwolf = "direwolf"
-unitTypeToSpriteName Shieldbearer = "shieldbearer"
-unitTypeToSpriteName Pyromancer = "pyromancer"
-unitTypeToSpriteName Necromancer = "necromancer"
-unitTypeToSpriteName BoulderRamCrew = "boulder_ram_crew"
-unitTypeToSpriteName IronbackMinotaur = "ironback_minotaur"
-unitTypeToSpriteName FireDrake = "fire_drake"
-unitTypeToSpriteName LichKingArcthros = "lich_king_arcthros"
+-- Frame counts for each animation type
+animFrameCounts :: AnimationType -> Int
+animFrameCounts AnimIdle = 3      -- 2-3 frames
+animFrameCounts AnimAttack = 5    -- 4-6 frames
+animFrameCounts AnimMove = 6       -- 4-6 frames (enemies only)
+animFrameCounts AnimDeath = 5     -- 4-6 frames
+animFrameCounts AnimFlying = 3     -- 2-3 frames (projectiles)
 
--- Get sprite path for tower type
-towerTypeToSpriteName :: TowerType -> String
-towerTypeToSpriteName ArrowTower = "arrow_tower"
-towerTypeToSpriteName CatapultTower = "catapult_tower"
-towerTypeToSpriteName CrossbowTower = "crossbow_tower"
-towerTypeToSpriteName FireTower = "fire_tower"
-towerTypeToSpriteName TeslaTower = "tesla_tower"
-towerTypeToSpriteName BallistaTower = "ballista_tower"
-towerTypeToSpriteName PoisonTower = "poison_tower"
-towerTypeToSpriteName BombardTower = "bombard_tower"
+-- Animation frame rate (frames per second)
+animFPS :: Float
+animFPS = 8.0  -- 8 FPS for smooth pixel art animation
 
--- Get sprite path for trap type
-trapTypeToSpriteName :: TrapType -> String
-trapTypeToSpriteName SpikeTrap = "spike_trap"
-trapTypeToSpriteName FreezeTrap = "freeze_trap"
-trapTypeToSpriteName FirePitTrap = "fire_pit_trap"
-trapTypeToSpriteName MagicSnareTrap = "magic_snare_trap"
-trapTypeToSpriteName ExplosiveBarrel = "explosive_barrel"
+-- Time per frame
+frameTime :: Float
+frameTime = 1.0 / animFPS
 
--- Get animation frame count (default values)
-getAnimationFrameCount :: AnimationType -> Int
-getAnimationFrameCount AnimIdle = 3
-getAnimationFrameCount AnimAttack = 5
-getAnimationFrameCount AnimDeath = 5
-getAnimationFrameCount AnimMove = 6
+-- ============================================================================
+-- Animation State Updates
+-- ============================================================================
 
--- Get animation FPS
-getAnimationFPS :: AnimationType -> Float
-getAnimationFPS AnimIdle = 2.0
-getAnimationFPS AnimAttack = 8.0
-getAnimationFPS AnimDeath = 6.0
-getAnimationFPS AnimMove = 8.0
+-- Update animation state based on time
+updateAnimationState :: Float -> AnimationState -> AnimationState
+updateAnimationState dt animState =
+  let newTime = animTime animState + dt
+      frameCount = animFrameCounts (animType animState)
+      -- Advance frame if enough time has passed
+      (newFrame, finalTime) = if newTime >= frameTime
+                              then ((animFrame animState + 1) `mod` frameCount, newTime - frameTime)
+                              else (animFrame animState, newTime)
+  in animState { animFrame = newFrame, animTime = finalTime }
 
--- Determine animation type based on enemy state
-enemyStateToAnimation :: EnemyAIState -> AnimationType
-enemyStateToAnimation Dead = AnimDeath
-enemyStateToAnimation AttackingGate = AnimAttack
-enemyStateToAnimation (AttackingTower _) = AnimAttack
-enemyStateToAnimation AttackingCastle = AnimAttack
-enemyStateToAnimation MovingToFort = AnimMove
-enemyStateToAnimation InsideFort = AnimMove
-enemyStateToAnimation (AttackingWall _) = AnimAttack
-enemyStateToAnimation (ClimbingWall _) = AnimMove
+-- Update enemy animation based on AI state
+updateEnemyAnimation :: Float -> EnemyAIState -> AnimationState -> AnimationState
+updateEnemyAnimation dt aiState animState =
+  let newAnimType = enemyStateToAnimation aiState
+      -- Reset frame if animation type changed
+      updatedState = if animType animState /= newAnimType
+                     then animState { animType = newAnimType, animFrame = 0, animTime = 0 }
+                     else animState
+  in updateAnimationState dt updatedState
 
--- Determine animation type for tower
-towerStateToAnimation :: Float -> Float -> AnimationType
-towerStateToAnimation lastFireTime currentTime =
-  let timeSinceFire = currentTime - lastFireTime
-  in if timeSinceFire < 0.5  -- Attack animation for 0.5 seconds after firing
-     then AnimAttack
-     else AnimIdle
+-- Update tower animation based on firing state
+updateTowerAnimation :: Float -> Float -> Float -> AnimationState -> AnimationState
+updateTowerAnimation dt lastFireTime currentTime animState =
+  let newAnimType = towerStateToAnimation lastFireTime currentTime
+      -- Reset frame if animation type changed
+      updatedState = if animType animState /= newAnimType
+                     then animState { animType = newAnimType, animFrame = 0, animTime = 0 }
+                     else animState
+  in updateAnimationState dt updatedState
 
--- Render animated sprite for enemy
-renderAnimatedEnemySprite :: UnitType -> EnemyAIState -> Float -> Picture -> Picture
-renderAnimatedEnemySprite unitType state currentTime fallback =
-  let animType = enemyStateToAnimation state
-      spriteName = unitTypeToSpriteName unitType
-      frameCount = getAnimationFrameCount animType
-      fps = getAnimationFPS animType
-      frameNum = getAnimationFrame currentTime frameCount fps
-      animName = case animType of
-                   AnimIdle -> "idle"
-                   AnimAttack -> "attack"
-                   AnimDeath -> "death"
-                   AnimMove -> "move"
-      spritePath = Assets.getAnimatedSpritePath "enemies" spriteName animName frameNum
-      cacheKey = "enemy_" ++ spriteName ++ "_" ++ animName ++ "_" ++ show frameNum
-  in getSpriteFrame cacheKey spritePath fallback
+-- Update trap animation based on trigger state
+updateTrapAnimation :: Float -> Bool -> AnimationState -> AnimationState
+updateTrapAnimation dt triggered animState =
+  let newAnimType = if triggered then AnimAttack else AnimIdle
+      -- Reset frame if animation type changed
+      updatedState = if animType animState /= newAnimType
+                     then animState { animType = newAnimType, animFrame = 0, animTime = 0 }
+                     else animState
+  in updateAnimationState dt updatedState
 
--- Render animated sprite for tower
-renderAnimatedTowerSprite :: TowerType -> Float -> Float -> Picture -> Picture
-renderAnimatedTowerSprite towerType lastFireTime currentTime fallback =
-  let animType = towerStateToAnimation lastFireTime currentTime
-      spriteName = towerTypeToSpriteName towerType
-      frameCount = getAnimationFrameCount animType
-      fps = getAnimationFPS animType
-      frameNum = getAnimationFrame currentTime frameCount fps
-      animName = case animType of
-                   AnimIdle -> "idle"
-                   AnimAttack -> "attack"
-                   AnimDeath -> "death"
-                   AnimMove -> "idle"  -- Towers don't move
-      spritePath = Assets.getAnimatedSpritePath "towers" spriteName animName frameNum
-      cacheKey = "tower_" ++ spriteName ++ "_" ++ animName ++ "_" ++ show frameNum
-  in getSpriteFrame cacheKey spritePath fallback
+-- ============================================================================
+-- Sprite Rendering with Image Loading
+-- ============================================================================
 
--- Render animated sprite for trap
-renderAnimatedTrapSprite :: TrapType -> Bool -> Float -> Picture -> Picture
-renderAnimatedTrapSprite trapType triggered currentTime fallback =
-  let animType = if triggered then AnimAttack else AnimIdle
-      spriteName = trapTypeToSpriteName trapType
-      frameCount = getAnimationFrameCount animType
-      fps = getAnimationFPS animType
-      frameNum = getAnimationFrame currentTime frameCount fps
-      animName = case animType of
-                   AnimIdle -> "idle"
-                   AnimAttack -> "attack"
-                   AnimDeath -> "death"
-                   AnimMove -> "idle"  -- Traps don't move
-      spritePath = Assets.getAnimatedSpritePath "traps" spriteName animName frameNum
-      cacheKey = "trap_" ++ spriteName ++ "_" ++ animName ++ "_" ++ show frameNum
-  in getSpriteFrame cacheKey spritePath fallback
+-- Render enemy with animation frame using loaded sprite
+renderAnimatedEnemy :: UnitType -> AnimationState -> Float -> Picture
+renderAnimatedEnemy unitType animState size =
+  let animType' = animType animState
+      frame = animFrame animState
+      spritePath = getEnemySpritePath unitType animType' frame
+      sprite = getSpriteFromCache spritePath
+  in case sprite of
+    Just pic -> scale (size / enemyBaseSize) (size / enemyBaseSize) pic  -- Scale from 48x48 base
+    Nothing -> blank  -- Fallback to blank if sprite not found
 
--- Render animated projectile
-renderAnimatedProjectileSprite :: ProjectileType -> Float -> Picture -> Picture
-renderAnimatedProjectileSprite projType currentTime fallback =
-  let spriteName = case projType of
-                     Arrow -> "arrow"
-                     BallistaBolt -> "ballista_bolt"
-                     Fireball -> "fireball"
-                     IceShard -> "ice_shard"
-                     LightningBolt -> "lightning_bolt"
-                     CatapultRock -> "catapult_rock"
-                     BarrageShot -> "barrage"
-      frameCount = 2  -- Projectiles typically have 2-3 frames
-      fps = 10.0
-      frameNum = getAnimationFrame currentTime frameCount fps
-      spritePath = Assets.getAnimatedSpritePath "projectiles" spriteName "move" frameNum
-      cacheKey = "proj_" ++ spriteName ++ "_" ++ show frameNum
-  in getSpriteFrame cacheKey spritePath fallback
+-- Render tower with animation frame using loaded sprite
+renderAnimatedTower :: TowerType -> AnimationState -> Float -> Picture
+renderAnimatedTower towerType animState size =
+  let animType' = animType animState
+      frame = animFrame animState
+      spritePath = getTowerSpritePath towerType animType' frame
+      sprite = getSpriteFromCache spritePath
+  in case sprite of
+    Just pic -> scale (size / towerBaseSize) (size / towerBaseSize) pic  -- Scale from 48x48 base
+    Nothing -> blank
 
+-- Render trap with animation frame using loaded sprite
+renderAnimatedTrap :: TrapType -> AnimationState -> Float -> Picture
+renderAnimatedTrap trapType animState size =
+  let animType' = animType animState
+      frame = animFrame animState
+      spritePath = getTrapSpritePath trapType animType' frame
+      sprite = getSpriteFromCache spritePath
+  in case sprite of
+    Just pic -> scale (size / 32.0) (size / 32.0) pic
+    Nothing -> blank
+
+-- Render projectile with animation frame using loaded sprite
+renderAnimatedProjectile :: ProjectileType -> AnimationState -> Float -> Picture
+renderAnimatedProjectile projType animState size =
+  let frame = animFrame animState
+      spritePath = getProjectileSpritePath projType frame
+      sprite = getSpriteFromCache spritePath
+  in case sprite of
+    Just pic -> scale (size / projectileBaseSize) (size / projectileBaseSize) pic  -- Scale from 24x24 base
+    Nothing -> blank
+
+-- ============================================================================
+-- Environment Tile Rendering with Image Loading
+-- ============================================================================
+
+-- Render grass tile using loaded sprite with decorative elements
+renderGrassTile :: Float -> Float -> Picture
+renderGrassTile x y =
+  let tilePath = "assets/images/environment/grass_tile_A.png"
+      sprite = getSpriteFromCache tilePath
+      baseTile = case sprite of
+        Just pic -> translate x y $ scale 2.0 2.0 pic  -- Scale 32x32 to 64x64
+        Nothing -> blank
+      -- Add random decorative elements (small flowers, grass tufts, etc.)
+      -- Use tile position as seed for pseudo-random decoration
+      seed = floor (x * 100 + y * 100) `mod` 100
+      decorations = if seed < 15  -- 15% chance of decoration
+        then renderGrassDecoration x y seed
+        else blank
+  in pictures [baseTile, decorations]
+
+-- Render small decorative elements on grass tiles
+renderGrassDecoration :: Float -> Float -> Int -> Picture
+renderGrassDecoration x y seed =
+  let decoType = seed `mod` 4
+      pixelSize = 2
+      offsetX = fromIntegral ((seed * 7) `mod` 20 - 10)  -- Random offset within tile
+      offsetY = fromIntegral ((seed * 11) `mod` 20 - 10)
+  in translate (x + offsetX) (y + offsetY) $ case decoType of
+    0 -> -- Small yellow flower
+      pictures $ map (\(px, py, col) ->
+        translate (px * pixelSize) (py * pixelSize) $
+        color (pixelColor col) $
+        rectangleSolid pixelSize pixelSize
+        ) [(-1, 0, "yellow"), (0, -1, "yellow"), (0, 0, "yellow"), (0, 1, "yellow"), (1, 0, "yellow")]
+    1 -> -- Small white flower
+      pictures $ map (\(px, py, col) ->
+        translate (px * pixelSize) (py * pixelSize) $
+        color (pixelColor col) $
+        rectangleSolid pixelSize pixelSize
+        ) [(-1, 0, "white"), (0, -1, "white"), (0, 0, "yellow"), (0, 1, "white"), (1, 0, "white")]
+    2 -> -- Grass tuft (dark green)
+      pictures $ map (\(px, py, col) ->
+        translate (px * pixelSize) (py * pixelSize) $
+        color (pixelColor col) $
+        rectangleSolid pixelSize pixelSize
+        ) [(-1, 0, "dark green"), (0, -1, "dark green"), (0, 0, "green"), (0, 1, "dark green"), (1, 0, "dark green")]
+    _ -> -- Small rock
+      pictures $ map (\(px, py, col) ->
+        translate (px * pixelSize) (py * pixelSize) $
+        color (pixelColor col) $
+        rectangleSolid pixelSize pixelSize
+        ) [(-1, -1, "gray"), (0, -1, "dark gray"), (1, -1, "gray"), (-1, 0, "dark gray"), (0, 0, "gray"), (1, 0, "dark gray"), (-1, 1, "gray"), (0, 1, "dark gray"), (1, 1, "gray")]
+  where
+    pixelColor = Rendering.PixelArt.pixelColor
+
+-- Render path tile using loaded sprite
+renderPathTile :: Float -> Float -> Picture
+renderPathTile x y =
+  let tilePath = "assets/images/environment/path_tile_A.png"
+      sprite = getSpriteFromCache tilePath
+  in case sprite of
+    Just pic -> translate x y $ scale 2.0 2.0 pic  -- Scale 32x32 to 64x64
+    Nothing -> blank
+
+-- ============================================================================
+-- Effect Rendering
+-- ============================================================================
+
+-- Render hit spark effect
+renderHitSpark :: Float -> Float -> Float -> Picture
+renderHitSpark x y life =
+  let pixelSize = 4
+      alpha = life * 2  -- Fade out
+      sparkColor = makeColor 1.0 1.0 0.0 alpha
+      pixels = [ (0, 0, "yellow"), (-1, 0, "yellow"), (1, 0, "yellow"), (0, -1, "yellow"), (0, 1, "yellow") ]
+  in translate x y $ pictures $ map (\(px, py, _) ->
+    translate (px * pixelSize) (py * pixelSize) $
+    color sparkColor $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
+
+-- Render explosion effect
+renderExplosion :: Float -> Float -> Float -> Picture
+renderExplosion x y life =
+  let pixelSize = 6
+      alpha = life * 1.5
+      -- Explosion with orange/yellow/red
+      pixels = [ (-2, 0, "orange"), (-1, 0, "yellow"), (0, 0, "red"), (1, 0, "yellow"), (2, 0, "orange")
+               , (0, -2, "orange"), (0, -1, "yellow"), (0, 1, "yellow"), (0, 2, "orange")
+               , (-1, -1, "orange"), (1, -1, "orange"), (-1, 1, "orange"), (1, 1, "orange")
+               ]
+  in translate x y $ pictures $ map (\(px, py, col) ->
+    translate (px * pixelSize) (py * pixelSize) $
+    color (makeColorAlpha (pixelColor col) alpha) $
+    rectangleSolid pixelSize pixelSize
+    ) pixels
+
+-- Helper to add alpha to color (simplified - just use the color with new alpha)
+makeColorAlpha :: Color -> Float -> Color
+makeColorAlpha col alpha = col  -- For now, just return the color (alpha handling in Gloss is limited)

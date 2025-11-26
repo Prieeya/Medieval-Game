@@ -10,13 +10,9 @@ import Data.IORef (newIORef, readIORef, writeIORef, IORef)
 import qualified Data.IORef as IORef
 import System.FilePath ((</>))
 import Data.Char (toLower)
-import Graphics.Gloss.Juicy (loadJuicyPNG)
-import qualified Assets
-import Rendering.SpriteAnimation (renderAnimatedEnemySprite, renderAnimatedTowerSprite, renderAnimatedTrapSprite, renderAnimatedProjectileSprite, getSpriteFrame)
-
--- Legacy sprite loader (for backward compatibility with old static sprites)
-getSprite :: String -> FilePath -> Picture -> Picture
-getSprite key fp fallback = getSpriteFrame key fp fallback
+import Rendering.PixelArt (renderPixelTower, renderPixelEnemy, renderPixelTrap, pixelColor, renderPixelWall, renderPixelGate, renderPixelFort, renderPixelCastle)
+import Rendering.SpriteAnimation (renderAnimatedEnemy, renderAnimatedTower, renderAnimatedTrap, renderAnimatedProjectile, renderGrassTile, renderPathTile)
+import Constants (leftSpawnX, centerSpawnX, rightSpawnX, gateX, gateY, fortCenterX, fortWidth, fortHeight)
 
 -- ============================================================================
 -- Realistic Color Definitions (Medieval Themed)
@@ -57,15 +53,55 @@ renderWorld :: World -> Picture
 renderWorld world = pictures
   [ renderBackground
   , renderPaths world
+  , renderDecorations world  -- Decorations above path, below towers
   , renderFort world
   , renderCastle world
   , renderDeploymentPreview world
   , renderTraps world
-  , renderEnemies world
-  , renderTowers world
-  , renderProjectiles world
+  , renderTowers world  -- Towers above decorations
+  , renderEnemies world  -- Enemies above towers
+  , renderProjectiles world  -- Projectiles highest
   , renderVisualEffects world
   ]
+
+-- ============================================================================
+-- Decoration Rendering
+-- ============================================================================
+
+renderDecorations :: World -> Picture
+renderDecorations world = pictures $ map renderDecoration $ M.elems (decorations world)
+
+renderDecoration :: Decoration -> Picture
+renderDecoration deco =
+  let (x, y) = decoPos deco
+      size = 32  -- Base size for decorations
+  in translate x y $ case decoType deco of
+    TreeSmall -> renderTreeSmall size
+    TreeLarge -> renderTreeLarge size
+    Bush -> renderBush size
+    Rock -> renderRock size
+
+renderTreeSmall :: Float -> Picture
+renderTreeSmall size =
+  pictures
+    [ color (makeColor 0.2 0.5 0.1 1) $ circleSolid (size * 0.6)  -- Foliage
+    , color (makeColor 0.3 0.2 0.1 1) $ translate 0 (-size * 0.3) $ rectangleSolid (size * 0.2) (size * 0.4)  -- Trunk
+    ]
+
+renderTreeLarge :: Float -> Picture
+renderTreeLarge size =
+  pictures
+    [ color (makeColor 0.2 0.5 0.1 1) $ circleSolid (size * 0.8)  -- Foliage
+    , color (makeColor 0.3 0.2 0.1 1) $ translate 0 (-size * 0.4) $ rectangleSolid (size * 0.3) (size * 0.5)  -- Trunk
+    ]
+
+renderBush :: Float -> Picture
+renderBush size =
+  color (makeColor 0.2 0.4 0.1 1) $ circleSolid (size * 0.4)
+
+renderRock :: Float -> Picture
+renderRock size =
+  color (makeColor 0.4 0.4 0.4 1) $ circleSolid (size * 0.3)
 
 -- ============================================================================
 -- Background
@@ -73,39 +109,72 @@ renderWorld world = pictures
 
 renderBackground :: Picture
 renderBackground = 
-  -- Enhanced medieval battlefield background with better visual appeal
-  let -- Base ground with gradient effect
-      groundColor = makeColor 0.4 0.35 0.28 1  -- Warmer earth tone
-      darkerGround = makeColor 0.32 0.28 0.22 1
-      -- Strategic grass patches for visual interest
-      grassPatches = pictures $ map (\i -> 
-        let x = worldLeft + fromIntegral (i `mod` 18) * (worldWidth / 18)
-            y = worldBottom + fromIntegral (i `div` 18) * (worldHeight / 14)
-            grassColor = makeColor 0.28 0.42 0.24 0.7
-            size = 25 + fromIntegral (i `mod` 3) * 5
-        in translate x y $ color grassColor $ circleSolid size
-        ) [0..251]
-      -- Dirt patches for texture
-      dirtPatches = pictures $ map (\i ->
-        let x = worldLeft + fromIntegral (i `mod` 22) * (worldWidth / 22)
-            y = worldBottom + fromIntegral (i `div` 22) * (worldHeight / 16)
-            dirtColor = makeColor 0.35 0.28 0.22 0.5
-            size = 18 + fromIntegral (i `mod` 2) * 4
-        in translate x y $ color dirtColor $ circleSolid size
-        ) [0..351]
-      -- Stone/rock details
-      stoneDetails = pictures $ map (\i ->
-        let x = worldLeft + fromIntegral (i `mod` 30) * (worldWidth / 30)
-            y = worldBottom + fromIntegral (i `div` 30) * (worldHeight / 20)
-            stoneColor = makeColor 0.45 0.42 0.38 0.6
-        in translate x y $ color stoneColor $ circleSolid 8
-        ) [0..599]
+  -- Tile-based grass field with pixel art tiles
+  let tileSize = 64.0  -- 64x64 tiles
+      tilesX = floor (worldWidth / tileSize) + 1
+      tilesY = floor (worldHeight / tileSize) + 1
+      -- Render grass tiles
+      grassTiles = pictures $ concatMap (\iy ->
+        concatMap (\ix ->
+          let tileX = worldLeft + fromIntegral ix * tileSize + tileSize/2
+              tileY = worldBottom + fromIntegral iy * tileSize + tileSize/2
+          in [renderGrassTile tileX tileY]
+          ) [0..tilesX]
+        ) [0..tilesY]
+      
+      -- Path from spawn area to fort gate using path tiles
+      pathTiles = pictures $ concatMap (\i ->
+        let t = fromIntegral i / 30.0
+            startX = leftSpawnX + 100
+            startY = 0
+            endX = gateX - 50
+            endY = gateY
+            midX = (startX + endX) / 2
+            midY = startY + 100
+            x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
+            y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
+            -- Snap to tile grid
+            tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
+            tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
+        in [renderPathTile tileX tileY]
+        ) [0..30]
+      
+      -- Center and right paths
+      centerPathTiles = pictures $ concatMap (\i ->
+        let t = fromIntegral i / 20.0
+            startX = centerSpawnX + 50
+            startY = 0
+            endX = gateX - 30
+            endY = gateY - 50
+            midX = (startX + endX) / 2
+            midY = startY - 80
+            x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
+            y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
+            tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
+            tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
+        in [renderPathTile tileX tileY]
+        ) [0..20]
+      
+      rightPathTiles = pictures $ concatMap (\i ->
+        let t = fromIntegral i / 20.0
+            startX = rightSpawnX + 50
+            startY = 0
+            endX = gateX - 30
+            endY = gateY + 50
+            midX = (startX + endX) / 2
+            midY = startY + 80
+            x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
+            y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
+            tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
+            tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
+        in [renderPathTile tileX tileY]
+        ) [0..20]
+      
   in pictures
-    [ color groundColor $ rectangleSolid worldWidth worldHeight
-    , color darkerGround $ translate 0 (-worldHeight/4) $ rectangleSolid worldWidth (worldHeight/2)
-    , grassPatches
-    , dirtPatches
-    , stoneDetails
+    [ grassTiles
+    , pathTiles
+    , centerPathTiles
+    , rightPathTiles
     ]
 
 -- ============================================================================
@@ -121,9 +190,52 @@ renderPaths world = pictures []
 
 renderFort :: World -> Picture
 renderFort world = pictures
-  [ renderWalls (fortWalls $ fort world)
+  [ renderPixelFort fortCenterX 0 fortWidth fortHeight  -- Fort interior ground
+  , renderWalls (fortWalls $ fort world)
   , renderGate (fortGate $ fort world)
+  , renderCornerTowers  -- Add decorative corner towers
   ]
+
+-- Render decorative conical corner towers on fort
+renderCornerTowers :: Picture
+renderCornerTowers = pictures
+  [ renderCornerTower (fortLeft, fortTop)  -- Top-left corner
+  , renderCornerTower (fortRight, fortTop)  -- Top-right corner
+  , renderCornerTower (fortLeft, fortBottom)  -- Bottom-left corner
+  , renderCornerTower (fortRight, fortBottom)  -- Bottom-right corner
+  ]
+
+-- Render a single conical corner tower
+renderCornerTower :: (Float, Float) -> Picture
+renderCornerTower (x, y) =
+  let towerSize = 40
+      towerHeight = 60
+      pixelSize = 4
+      -- Base of tower (square)
+      basePixels = [(-2, -3, "gray"), (-1, -3, "dark gray"), (0, -3, "gray"), (1, -3, "dark gray"), (2, -3, "gray")
+                   , (-2, -2, "dark gray"), (-1, -2, "gray"), (0, -2, "dark gray"), (1, -2, "gray"), (2, -2, "dark gray")
+                   , (-2, -1, "gray"), (-1, -1, "dark gray"), (0, -1, "gray"), (1, -1, "dark gray"), (2, -1, "gray")
+                   , (-2, 0, "dark gray"), (-1, 0, "gray"), (0, 0, "dark gray"), (1, 0, "gray"), (2, 0, "dark gray")
+                   , (-2, 1, "gray"), (-1, 1, "dark gray"), (0, 1, "gray"), (1, 1, "dark gray"), (2, 1, "gray")
+                   ]
+      -- Tower body (vertical)
+      bodyPixels = [(-1, 2, "gray"), (0, 2, "dark gray"), (1, 2, "gray")
+                   , (-1, 3, "dark gray"), (0, 3, "gray"), (1, 3, "dark gray")
+                   , (-1, 4, "gray"), (0, 4, "dark gray"), (1, 4, "gray")
+                   , (-1, 5, "dark gray"), (0, 5, "gray"), (1, 5, "dark gray")
+                   , (-1, 6, "gray"), (0, 6, "dark gray"), (1, 6, "gray")
+                   ]
+      -- Conical roof (pointed)
+      roofPixels = [(-2, 7, "dark gray"), (-1, 7, "gray"), (0, 7, "dark gray"), (1, 7, "gray"), (2, 7, "dark gray")
+                   , (-1, 8, "gray"), (0, 8, "dark gray"), (1, 8, "gray")
+                   , (0, 9, "dark gray")
+                   ]
+      -- Battlements on top
+      battlementPixels = [(-2, 6, "gray"), (2, 6, "gray")]
+      allPixels = basePixels ++ bodyPixels ++ roofPixels ++ battlementPixels
+  in translate x y $ pictures $ map (\(px, py, col) -> translate (px * pixelSize) (py * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) allPixels
+  where
+    pixelColor = Rendering.PixelArt.pixelColor
 
 renderWalls :: [WallSegment] -> Picture
 renderWalls walls = pictures $ map renderWall walls
@@ -133,45 +245,16 @@ renderWall wall =
   let (x1, y1) = wallStart wall
       (x2, y2) = wallEnd wall
       healthRatio = wallHP wall / (Types.wallMaxHP wall)
-      wallColor = if healthRatio > 0.7 then darkBrown
-                  else if healthRatio > 0.4 then (makeColor 0.4 0.25 0.15 1)
-                  else (makeColor 0.2 0.15 0.08 1)
-      -- Make walls thick and realistic
-      wallThickness = 16
-      -- Calculate perpendicular direction for thickness
-      dx = x2 - x1
-      dy = y2 - y1
-      len = sqrt (dx * dx + dy * dy)
-      perpX = if len > 0 then -dy / len * wallThickness / 2 else 0
-      perpY = if len > 0 then dx / len * wallThickness / 2 else 0
-      -- Create thick wall rectangle
-      corners = [(x1 + perpX, y1 + perpY), (x2 + perpX, y2 + perpY),
-                (x2 - perpX, y2 - perpY), (x1 - perpX, y1 - perpY)]
-      wallBody = polygon corners
-      -- Add darker outline for depth
-      outlineColor = makeColor 0.2 0.15 0.1 1
-      outline = line corners
-  in pictures [color wallColor wallBody, color outlineColor outline]
+  in renderPixelWall x1 y1 x2 y2 healthRatio
 
 renderGate :: Gate -> Picture
 renderGate gate =
   let (x, y) = gatePos gate
-      healthRatio = gateHP gate / (Types.gateMaxHP gate)
       gateHeight = Types.gateWidth gate
-  in translate x y $ pictures
-    [ if gateDestroyed gate
-      then pictures
-        [ color darkStoneGray $ rectangleSolid 20 gateHeight
-        , color (makeColor 0.2 0.1 0.05 1) $ rectangleSolid 16 (gateHeight * 0.7)
-        ]
-      else pictures
-        [ color darkBrown $ rectangleSolid 18 gateHeight
-        , color woodBrown $ rectangleSolid 14 (gateHeight * 0.9)
-        , color stoneGray $ rectangleSolid 10 (gateHeight * 0.8)
-        , translate (-6) (gateHeight * 0.3) $ color darkIron $ rectangleSolid 4 (gateHeight * 0.5)
-        , translate 6 (gateHeight * 0.3) $ color darkIron $ rectangleSolid 4 (gateHeight * 0.5)
-        , translate 0 (gateHeight/2 + 12) $ renderHealthBar (gateHP gate) (Types.gateMaxHP gate) 35
-        ]
+      gateWidth = 60  -- Wider gate
+  in pictures
+    [ renderPixelGate x y gateWidth gateHeight (gateDestroyed gate)
+    , translate x (y + gateHeight/2 + 12) $ renderHealthBar (gateHP gate) (Types.gateMaxHP gate) 50
     ]
 
 -- ============================================================================
@@ -182,15 +265,10 @@ renderCastle :: World -> Picture
 renderCastle world =
   let c = castle world
       (x, y) = castlePos c
-      size = Types.castleSize c
-  in translate x y $ pictures
-    [ color darkBrown $ rectangleSolid (size + 10) (size + 10)
-    , color woodBrown $ rectangleSolid size size
-    , color (makeColor 0.7 0.5 0.3 1) $ rectangleSolid (size * 0.8) (size * 0.8)
-    , color darkStoneGray $ translate (-size * 0.3) (size * 0.4) $ rectangleSolid (size * 0.3) (size * 0.4)
-    , color darkStoneGray $ translate (size * 0.3) (size * 0.4) $ rectangleSolid (size * 0.3) (size * 0.4)
-    , color darkGold $ translate 0 (size * 0.35) $ rectangleSolid (size * 0.6) (size * 0.5)
-    , translate 0 (size/2 + 15) $ renderHealthBar (castleHP c) (Types.castleMaxHP c) (size * 0.7)
+      size = Types.castleSize c * 4.0  -- Much larger castle matching JSON description
+  in pictures
+    [ renderPixelCastle x y size
+    , translate x (y + size/2 + 20) $ renderHealthBar (castleHP c) (Types.castleMaxHP c) (size * 0.8)
     ]
 
 -- ============================================================================
@@ -203,17 +281,23 @@ renderEnemies world = pictures $ map (renderEnemy (timeElapsed world)) $ M.elems
 renderEnemy :: Float -> Enemy -> Picture
 renderEnemy currentTime enemy =
   let (x, y) = enemyPos enemy
-      baseColor = enemyTypeColor (enemyType enemy)
       flashColor = if enemyHitFlash enemy > 0
                    then makeColor 1 1 1 (enemyHitFlash enemy * 5)
                    else makeColor 0 0 0 0
-      size = enemySizeByRole (enemyRole enemy)
-      healthBar = renderHealthBar (enemyHP enemy) (enemyMaxHP enemy) size
-      sprite = renderEnemySprite (enemyType enemy) (enemyAIState enemy) currentTime baseColor size
+      baseSize = enemySizeByRole (enemyRole enemy)
+      -- Apply scaling: 40% bigger
+      size = baseSize * globalPixelScale * enemyScale
+      -- Bosses get additional scaling
+      finalSize = if enemyRole enemy == Boss
+                  then size * (bossScale / enemyScale)  -- Already scaled by enemyScale, so multiply by ratio
+                  else size
+      healthBar = renderHealthBar (enemyHP enemy) (enemyMaxHP enemy) finalSize
+      -- Use animated sprite rendering with scaled size
+      sprite = renderAnimatedEnemy (enemyType enemy) (enemyAnimState enemy) finalSize
   in translate x y $ pictures
     [ sprite
-    , color flashColor $ circleSolid (size + 2)
-    , translate 0 (size + 8) healthBar
+    , color flashColor $ circleSolid (finalSize + 2)
+    , translate 0 (finalSize + 8) healthBar
     ]
 
 -- Fallback shape-based enemy sprites (kept as-is for when PNGs are missing)
@@ -287,11 +371,7 @@ renderEnemySpriteShape LichKingArcthros _ size =
     , color (makeColor 0.3 0.6 0.8 1) $ translate 0 (size * 0.3) $ circleSolid (size * 0.25)
     ]
 
--- Generic sprite wrapper: attempt to load animated PNG asset for unit type, fallback to shape sprite
-renderEnemySprite :: UnitType -> EnemyAIState -> Float -> Color -> Float -> Picture
-renderEnemySprite ut state currentTime col size =
-  let fallback = renderEnemySpriteShape ut col size
-  in renderAnimatedEnemySprite ut state currentTime fallback
+-- renderEnemySprite removed - now using renderAnimatedEnemy from SpriteAnimation
 
 enemyTypeColor :: UnitType -> Color
 enemyTypeColor GruntRaider = makeColor 0.6 0.2 0.2 1
@@ -306,12 +386,12 @@ enemyTypeColor FireDrake = makeColor 0.8 0.2 0.1 1
 enemyTypeColor LichKingArcthros = makeColor 0.2 0.3 0.5 1
 
 enemySizeByRole :: UnitRole -> Float
-enemySizeByRole Melee = 8
-enemySizeByRole Fast = 6
-enemySizeByRole Ranged = 7
-enemySizeByRole Heavy = 12
-enemySizeByRole Siege = 10
-enemySizeByRole Boss = 16
+enemySizeByRole Melee = 64  -- 64x64 base resolution as per JSON
+enemySizeByRole Fast = 64  -- 64x64 base resolution
+enemySizeByRole Ranged = 64  -- 64x64 base resolution
+enemySizeByRole Heavy = 80  -- Larger for heavy units
+enemySizeByRole Siege = 80  -- Larger for siege units
+enemySizeByRole Boss = 128  -- Much larger for bosses
 
 -- ============================================================================
 -- Tower Rendering
@@ -323,18 +403,16 @@ renderTowers world = pictures $ map (renderTower (timeElapsed world)) $ M.elems 
 renderTower :: Float -> Tower -> Picture
 renderTower currentTime tower =
   let (x, y) = towerPos tower
-      towerColor = towerTypeColor (towerType tower)
-      size = 12 + fromIntegral (towerLevel tower) * 3
+      baseSize = 64 + fromIntegral (towerLevel tower) * 8  -- 64x64 base resolution
+      -- Apply scaling: 40% bigger
+      size = baseSize * globalPixelScale * towerScale
       range = towerRange tower
-      -- Arch-shaped range indicator based on tower role
-      rangeArch = renderTowerRangeArch (towerType tower) range
+      -- NO range indicator after placement (only show during preview)
       healthBar = renderHealthBar (towerHP tower) (Types.towerMaxHP tower) size
-      -- Use animated sprite system
-      fallback = renderTowerSprite (towerType tower) size (towerLevel tower)
-      sprite = renderAnimatedTowerSprite (towerType tower) (towerLastFireTime tower) currentTime fallback
+      -- Use animated sprite rendering with scaled size
+      sprite = renderAnimatedTower (towerType tower) (towerAnimState tower) size
   in translate x y $ pictures
-    [ rangeArch
-    , sprite
+    [ sprite
     , translate 0 (size + 8) healthBar
     , color white $ translate 0 (size/2 + 8) $ scale 0.12 0.12 $ text $ "Lvl" ++ show (towerLevel tower)
     ]
@@ -378,7 +456,7 @@ renderTowerRangeArch tt range =
     , color archColor centerLines
     ]
 
--- Render deployment preview with arch-shaped radius
+-- Render deployment preview with red transparent arch BEFORE placement
 renderDeploymentPreview :: World -> Picture
 renderDeploymentPreview world =
   case buildMode (inputState world) of
@@ -391,42 +469,33 @@ renderDeploymentPreview world =
           tooCloseToGate = distance (mx, my) (gatePos $ fortGate $ fort world) < 60
           tooCloseToCastle = distance (mx, my) (castlePos $ castle world) < 100
           isValid = isInside && not tooCloseToTower && not tooCloseToGate && not tooCloseToCastle
-          -- Use different colors for arch based on validity
-          (archColor, archOutline) = if isValid
-                        then (makeColor 0.2 1.0 0.2 0.5, makeColor 0.1 0.7 0.1 0.7)
-                        else (makeColor 1.0 0.2 0.2 0.5, makeColor 0.7 0.1 0.1 0.7)
-          -- Render arch with proper colors
-          (angle, segments) = case tt of
-            ArrowTower -> (120, 30)
-            CatapultTower -> (100, 25)
-            CrossbowTower -> (90, 20)
-            FireTower -> (150, 40)
-            TeslaTower -> (140, 35)
-            BallistaTower -> (110, 30)
-            PoisonTower -> (130, 35)
-            BombardTower -> (120, 30)
-          -- Rotate arch 180 degrees to point left (toward enemies)
-          startAngle = 180 - angle / 2
-          angleStep = angle / fromIntegral segments
-          points = map (\i -> 
+          -- RED transparent arch (50% alpha) before placement - pointing left toward enemies
+          archAngle = 120  -- 120 degree arch
+          archSegments = 30
+          startAngle = 180 - archAngle / 2  -- Start from left side
+          angleStep = archAngle / fromIntegral archSegments
+          archPoints = map (\i ->
             let a = startAngle + angleStep * fromIntegral i
                 rad = a * pi / 180
             in (range * cos rad, range * sin rad)
-            ) [0..segments]
-          archLine = line points
-          endPoint1 = head points
-          endPoint2 = last points
+            ) [0..archSegments]
+          archLine = line archPoints
+          archColor = makeColor 1.0 0.0 0.0 0.5  -- Red transparent
+          archOutline = makeColor 1.0 0.0 0.0 0.7  -- Red outline
+          -- Lines from center to arch ends
+          endPoint1 = head archPoints
+          endPoint2 = last archPoints
           centerLines = pictures
             [ line [(0, 0), endPoint1]
             , line [(0, 0), endPoint2]
             ]
-          rangeArch = pictures
-            [ color archColor archLine
-            , color archOutline archLine
-            , color archColor centerLines
-            ]
           previewTower = color (if isValid then makeColor 0.2 1.0 0.2 0.6 else makeColor 1.0 0.2 0.2 0.6) $ circleSolid 15
-      in translate mx my $ pictures [rangeArch, previewTower]
+      in translate mx my $ pictures
+        [ color archColor archLine
+        , color archOutline archLine
+        , color archColor centerLines
+        , previewTower
+        ]
     _ -> blank
   where
     distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)
@@ -509,9 +578,11 @@ renderTraps world = pictures $ map (renderTrap (timeElapsed world)) $ M.elems (t
 renderTrap :: Float -> Trap -> Picture
 renderTrap currentTime trap =
   let (x, y) = trapPos trap
-      size = 8
-      fallback = renderTrapSprite (trapType trap) size
-      sprite = renderAnimatedTrapSprite (trapType trap) (trapTriggered trap) currentTime fallback
+      baseSize = 64  -- 64x64 base resolution as per JSON
+      -- Apply scaling: smaller defenses
+      size = baseSize * globalPixelScale * towerScale  -- Use towerScale for consistency
+      -- Use animated sprite rendering
+      sprite = renderAnimatedTrap (trapType trap) (trapAnimState trap) size
   in translate x y sprite
 
 renderTrapSprite :: TrapType -> Float -> Picture
@@ -571,32 +642,50 @@ renderProjectiles world = pictures $ map (renderProjectile (timeElapsed world)) 
 renderProjectile :: Float -> Projectile -> Picture
 renderProjectile currentTime projectile =
   let (x, y) = projectilePos projectile
-      size = 4
-      fallback = renderProjectileSprite (projectileType projectile) size
-      sprite = renderAnimatedProjectileSprite (projectileType projectile) currentTime fallback
-  in translate x y sprite
+      baseSize = 16
+      -- Apply scaling: 5x bigger (3.5x from projectileScale)
+      size = baseSize * globalPixelScale * projectileScale
+      -- Use animated sprite rendering with scaled size
+      sprite = renderAnimatedProjectile (projectileType projectile) (projectileAnimState projectile) size
+      -- Add smaller white/yellow outline for visibility (reduced radius)
+      outlineRadius = size * 0.15  -- Much smaller outline radius (15% of size)
+      outline = color (makeColor 1.0 1.0 0.8 0.8) $ circleSolid outlineRadius
+      outline2 = color (makeColor 1.0 1.0 1.0 0.6) $ circleSolid (outlineRadius * 0.8)
+  in translate x y $ pictures
+    [ outline2
+    , outline
+    , sprite
+    ]
 
 renderProjectileSprite :: ProjectileType -> Float -> Picture
 renderProjectileSprite Arrow size =
-  color (makeColor 0.6 0.6 0.4 1) $ line [(0, 0), (size*2, 0)]
+  let pixelSize = size / 2
+      pixels = [(0, 0, "tan"), (1, 0, "brown"), (2, 0, "tan")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 renderProjectileSprite BallistaBolt size =
-  color (makeColor 0.5 0.5 0.5 1) $ rectangleSolid (size * 1.5) (size * 0.8)
+  let pixelSize = size / 2
+      pixels = [(0, 0, "silver"), (1, 0, "gray"), (2, 0, "silver")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 renderProjectileSprite Fireball size =
-  pictures
-    [ color (makeColor 1 0.4 0.2 1) $ circleSolid size
-    , color (makeColor 1 0.6 0.3 0.6) $ circleSolid (size * 0.6)
-    ]
+  let pixelSize = size / 2
+      pixels = [(-1, 0, "orange"), (0, 0, "yellow"), (1, 0, "orange"), (0, -1, "red"), (0, 1, "red")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 renderProjectileSprite IceShard size =
-  color (makeColor 0.4 0.7 1 1) $ rectangleSolid (size * 0.8) (size * 2)
+  let pixelSize = size / 2
+      pixels = [(0, -1, "light blue"), (0, 0, "blue"), (0, 1, "light blue"), (0, 2, "white")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 renderProjectileSprite LightningBolt size =
-  pictures
-    [ color (makeColor 1 1 0.5 1) $ line [(-size, 0), (size, 0)]
-    , color (makeColor 1 1 0.7 0.6) $ line [(-size/2, size/2), (size/2, -size/2)]
-    ]
-renderProjectileSprite BarrageShot size =
-  color (makeColor 0.7 0.6 0.5 1) $ circleSolid (size * 0.7)
+  let pixelSize = size / 2
+      pixels = [(-1, 0, "yellow"), (0, 0, "white"), (1, 0, "yellow"), (0, -1, "blue"), (0, 1, "blue")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 renderProjectileSprite CatapultRock size =
-  color (makeColor 0.4 0.4 0.3 1) $ circleSolid (size * 1.2)
+  let pixelSize = size / 2
+      pixels = [(-1, -1, "gray"), (0, -1, "dark gray"), (1, -1, "gray"), (-1, 0, "dark gray"), (0, 0, "gray"), (1, 0, "dark gray"), (-1, 1, "gray"), (0, 1, "dark gray"), (1, 1, "gray")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
+renderProjectileSprite BarrageShot size =
+  let pixelSize = size / 2
+      pixels = [(-1, -1, "brown"), (0, -1, "tan"), (1, -1, "brown"), (-1, 0, "tan"), (0, 0, "brown"), (1, 0, "tan"), (-1, 1, "brown"), (0, 1, "tan"), (1, 1, "brown")]
+  in pictures $ map (\(x, y, col) -> translate (x * pixelSize) (y * pixelSize) $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) pixels
 
 projectileTypeColor :: ProjectileType -> Color
 projectileTypeColor Arrow = makeColor 0.6 0.6 0.4 1
@@ -657,8 +746,8 @@ renderEffect (DamageNumber pos dmg life) =
 renderHealthBar :: Float -> Float -> Float -> Picture
 renderHealthBar current max' width =
   let ratio = current / max'
-      barWidth = width * 2
-      barHeight = 3
+      barWidth = width * 1.5  -- Reduced from 2.0
+      barHeight = 2  -- Reduced from 3
       greenWidth = barWidth * ratio
   in pictures
     [ color (makeColor 0.2 0.2 0.2 1) $ rectangleSolid barWidth barHeight

@@ -1,8 +1,19 @@
-module Assets (ensureAssets, assetPath, getSpritePath, getAnimatedSpritePath) where
+{-# LANGUAGE FlexibleContexts #-}
 
-import Codec.Picture
+module Assets (ensureAssets, assetPath, loadAllSprites, getSprite, Assets(..),
+               getTowerSpritePath, getEnemySpritePath, getTrapSpritePath, getProjectileSpritePath) where
+
 import System.Directory (createDirectoryIfMissing, doesFileExist)
-import System.FilePath ((</>))
+import System.FilePath ((</>), (<.>))
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import Graphics.Gloss
+import Graphics.Gloss.Juicy (loadJuicyPNG)
+import Data.IORef
+import System.IO.Unsafe (unsafePerformIO)
+import Control.Monad (forM_)
+import Types (TowerType(..), TrapType(..), UnitType(..), ProjectileType(..), AnimationType(..))
+import Data.Char (toLower)
 
 assetPath :: FilePath
 assetPath = "assets"
@@ -10,88 +21,251 @@ assetPath = "assets"
 imagesPath :: FilePath
 imagesPath = assetPath </> "images"
 
--- Get path to a static sprite (legacy support)
-getSpritePath :: String -> FilePath
-getSpritePath name = assetPath </> name
+-- Asset cache stored in IORef
+{-# NOINLINE assetCache #-}
+assetCache :: IORef (Map String Picture)
+assetCache = unsafePerformIO $ newIORef M.empty
 
--- Get path to an animated sprite frame
--- Format: assets/images/<category>/<name>/<animation>/frame_XX.png
-getAnimatedSpritePath :: String -> String -> String -> Int -> FilePath
-getAnimatedSpritePath category name animation frameNum =
-  let frameName = "frame_" ++ (if frameNum < 10 then "0" else "") ++ show frameNum ++ ".png"
-  in imagesPath </> category </> name </> animation </> frameName
+-- Assets data type to store loaded sprites
+data Assets = Assets
+  { assetsCache :: Map String Picture
+  } deriving (Show)
 
 -- Ensure assets directory exists
 ensureAssets :: IO ()
 ensureAssets = do
   createDirectoryIfMissing True assetPath
   createDirectoryIfMissing True imagesPath
-  -- Create subdirectories for organized sprite storage
-  mapM_ (createDirectoryIfMissing True) 
-    [ imagesPath </> "towers"
-    , imagesPath </> "traps"
-    , imagesPath </> "enemies"
-    , imagesPath </> "bosses"
-    , imagesPath </> "environment"
-    , imagesPath </> "projectiles"
-    ]
-  -- Still create fallback sprites if new ones don't exist
-  mapM_ (writeIfMissing assetPath) assetFiles
 
-writeIfMissing :: FilePath -> (FilePath, (Int, Int), (PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8)) -> IO ()
-writeIfMissing dir (name, (w,h), painter) = do
-  let fp = dir </> name
-  exists <- doesFileExist fp
+-- Convert CamelCase to snake_case
+toSnakeCase :: String -> String
+toSnakeCase [] = []
+toSnakeCase (c:cs) = toLower c : go cs
+  where
+    go [] = []
+    go (c':cs') | c' >= 'A' && c' <= 'Z' = '_' : toLower c' : go cs'
+                | otherwise = c' : go cs'
+
+-- Map tower types to sprite names
+towerSpriteName :: TowerType -> String
+towerSpriteName ArrowTower = "arrow_tower"
+towerSpriteName CatapultTower = "catapult_tower"
+towerSpriteName CrossbowTower = "crossbow_tower"
+towerSpriteName FireTower = "fire_tower"
+towerSpriteName TeslaTower = "tesla_tower"
+towerSpriteName BallistaTower = "ballista_tower"
+towerSpriteName PoisonTower = "poison_tower"
+towerSpriteName BombardTower = "bombard_tower"
+
+-- Map enemy types to sprite names
+enemySpriteName :: UnitType -> String
+enemySpriteName GruntRaider = "grunt_raider"
+enemySpriteName BruteCrusher = "brute_crusher"
+enemySpriteName Direwolf = "direwolf"
+enemySpriteName Shieldbearer = "shieldbearer"
+enemySpriteName Pyromancer = "pyromancer"
+enemySpriteName Necromancer = "necromancer"
+enemySpriteName BoulderRamCrew = "boulder_ram_crew"
+enemySpriteName IronbackMinotaur = "ironback_minotaur"
+enemySpriteName FireDrake = "fire_drake"
+enemySpriteName LichKingArcthros = "lich_king_arcthros"
+
+-- Map trap types to sprite names
+trapSpriteName :: TrapType -> String
+trapSpriteName SpikeTrap = "spike_trap"
+trapSpriteName FreezeTrap = "freeze_trap"
+trapSpriteName FirePitTrap = "fire_pit_trap"
+trapSpriteName MagicSnareTrap = "magic_snare_trap"
+trapSpriteName ExplosiveBarrel = "explosive_barrel"
+
+-- Map projectile types to sprite names
+projectileSpriteName :: ProjectileType -> String
+projectileSpriteName Arrow = "arrow_projectile"
+projectileSpriteName BallistaBolt = "bolt_projectile"
+projectileSpriteName Fireball = "fireball_projectile"
+projectileSpriteName IceShard = "lightning_arc"  -- Using lightning as placeholder
+projectileSpriteName LightningBolt = "lightning_arc"
+projectileSpriteName CatapultRock = "rock_projectile"
+projectileSpriteName BarrageShot = "cannonball"
+
+-- Map animation types to folder names
+animationFolderName :: AnimationType -> String
+animationFolderName AnimIdle = "idle"
+animationFolderName AnimAttack = "attack"
+animationFolderName AnimMove = "move"
+animationFolderName AnimDeath = "death"
+animationFolderName AnimFlying = "flying"
+
+-- Get sprite path for a specific entity and animation
+getSpritePath :: String -> String -> AnimationType -> Int -> FilePath
+getSpritePath category name animType frame =
+  imagesPath </> category </> name </> animationFolderName animType </> show frame <.> "png"
+
+-- Get sprite path for environment tiles
+getEnvironmentTilePath :: String -> FilePath
+getEnvironmentTilePath name =
+  imagesPath </> "environment" </> name <.> "png"
+
+-- Get sprite path for UI icons
+getUIIconPath :: String -> FilePath
+getUIIconPath name =
+  imagesPath </> "ui" </> name <.> "png"
+
+-- Load a single sprite image
+loadSprite :: FilePath -> IO (Maybe Picture)
+loadSprite path = do
+  exists <- doesFileExist path
   if exists
-    then return ()
-    else do
-      let img = generateImage (\nx ny -> painter (PixelRGBA8 0 0 0 0) (PixelRGBA8 (fromIntegral ((nx * 37) `mod` 255)) (fromIntegral ((ny * 61) `mod` 255)) 128 255)) w h
-      writePng fp img
+    then do
+      result <- loadJuicyPNG path
+      case result of
+        Just pic -> return $ Just pic
+        Nothing -> return Nothing
+    else return Nothing
 
--- Legacy asset files (fallback if new sprites don't exist)
-assetFiles :: [(FilePath, (Int, Int), (PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8))]
-assetFiles =
-  [ ("enemy_grunt.png", (32,32), simplePainter (PixelRGBA8 180 60 60 255))
-  , ("enemy_shieldbearer.png", (36,36), simplePainter (PixelRGBA8 150 150 160 255))
-  , ("enemy_eliteknight.png", (40,40), simplePainter (PixelRGBA8 180 170 140 255))
-  , ("enemy_runner.png", (28,28), simplePainter (PixelRGBA8 200 120 80 255))
-  , ("enemy_raiderrogue.png", (32,32), simplePainter (PixelRGBA8 170 90 120 255))
-  , ("enemy_archer.png", (32,32), simplePainter (PixelRGBA8 120 180 100 255))
-  , ("enemy_crossbowman.png", (34,34), simplePainter (PixelRGBA8 140 140 120 255))
-  , ("enemy_tank.png", (44,44), simplePainter (PixelRGBA8 120 120 120 255))
-  , ("enemy_ogre.png", (46,46), simplePainter (PixelRGBA8 150 100 80 255))
-  , ("enemy_catapult.png", (40,28), simplePainter (PixelRGBA8 120 100 100 255))
-  , ("enemy_ram.png", (40,30), simplePainter (PixelRGBA8 130 90 70 255))
-  , ("enemy_warlord.png", (56,56), simplePainter (PixelRGBA8 200 80 80 255))
-  , ("enemy_siegecommander.png", (60,60), simplePainter (PixelRGBA8 190 150 90 255))
-  , ("enemy_gianttroll.png", (64,64), simplePainter (PixelRGBA8 140 90 60 255))
+-- Load all sprites into cache
+loadAllSprites :: IO Assets
+loadAllSprites = do
+  ensureAssets
+  cache <- newIORef M.empty
+  
+  -- Load tower sprites
+  let towerTypes = [ArrowTower, CatapultTower, CrossbowTower, FireTower, TeslaTower, BallistaTower, PoisonTower, BombardTower]
+      animTypes = [AnimIdle, AnimAttack, AnimDeath]
+  
+  forM_ towerTypes $ \towerType -> do
+    let name = towerSpriteName towerType
+    forM_ animTypes $ \animType -> do
+      let frameCount = case animType of
+            AnimIdle -> 3
+            AnimAttack -> 5
+            AnimDeath -> 4
+            _ -> 1
+      forM_ [0..frameCount-1] $ \frame -> do
+        let path = getSpritePath "towers" name animType frame
+        sprite <- loadSprite path
+        case sprite of
+          Just pic -> modifyIORef cache (M.insert (path) pic)
+          Nothing -> return ()
+  
+  -- Load enemy sprites
+  let enemyTypes = [GruntRaider, BruteCrusher, Direwolf, Shieldbearer, Pyromancer, Necromancer, BoulderRamCrew]
+      enemyAnimTypes = [AnimIdle, AnimMove, AnimAttack, AnimDeath]
+  
+  forM_ enemyTypes $ \enemyType -> do
+    let name = enemySpriteName enemyType
+    forM_ enemyAnimTypes $ \animType -> do
+      let frameCount = case animType of
+            AnimIdle -> 3
+            AnimMove -> 6
+            AnimAttack -> 5
+            AnimDeath -> 5
+            _ -> 1
+      forM_ [0..frameCount-1] $ \frame -> do
+        let path = getSpritePath "enemies" name animType frame
+        sprite <- loadSprite path
+        case sprite of
+          Just pic -> modifyIORef cache (M.insert path pic)
+          Nothing -> return ()
+  
+  -- Load boss sprites
+  let bossTypes = [IronbackMinotaur, FireDrake, LichKingArcthros]
+  
+  forM_ bossTypes $ \bossType -> do
+    let name = enemySpriteName bossType
+    forM_ enemyAnimTypes $ \animType -> do
+      let frameCount = case animType of
+            AnimIdle -> 3
+            AnimMove -> 6
+            AnimAttack -> 6
+            AnimDeath -> 6
+            _ -> 1
+      forM_ [0..frameCount-1] $ \frame -> do
+        let path = getSpritePath "bosses" name animType frame
+        sprite <- loadSprite path
+        case sprite of
+          Just pic -> modifyIORef cache (M.insert path pic)
+          Nothing -> return ()
+  
+  -- Load trap sprites
+  let trapTypes = [SpikeTrap, FreezeTrap, FirePitTrap, MagicSnareTrap, ExplosiveBarrel]
+      trapAnimTypes = [AnimIdle, AnimAttack]  -- idle and trigger
+  
+  forM_ trapTypes $ \trapType -> do
+    let name = trapSpriteName trapType
+    forM_ trapAnimTypes $ \animType -> do
+      let frameCount = case animType of
+            AnimIdle -> 2
+            AnimAttack -> 4
+            _ -> 1
+      forM_ [0..frameCount-1] $ \frame -> do
+        let path = getSpritePath "traps" name animType frame
+        sprite <- loadSprite path
+        case sprite of
+          Just pic -> modifyIORef cache (M.insert path pic)
+          Nothing -> return ()
+  
+  -- Load projectile sprites
+  let projTypes = [Arrow, BallistaBolt, Fireball, IceShard, LightningBolt, CatapultRock, BarrageShot]
+  
+  forM_ projTypes $ \projType -> do
+    let name = projectileSpriteName projType
+    forM_ [0..2] $ \frame -> do  -- 3 frames for projectiles
+      let path = getSpritePath "projectiles" name AnimFlying frame
+      sprite <- loadSprite path
+      case sprite of
+        Just pic -> modifyIORef cache (M.insert path pic)
+        Nothing -> return ()
+  
+  -- Load environment tiles
+  let envTiles = ["grass_tile_A", "grass_tile_B", "grass_tile_C",
+                  "path_tile_A", "path_tile_B", "path_tile_C",
+                  "castle_wall_straight_horizontal", "castle_wall_straight_vertical",
+                  "castle_wall_corner_NE", "castle_wall_corner_NW",
+                  "castle_wall_corner_SE", "castle_wall_corner_SW",
+                  "castle_gate_closed", "castle_gate_open_top", "castle_gate_open_bottom",
+                  "castle_floor_stone"]
+  
+  forM_ envTiles $ \tile -> do
+    let path = getEnvironmentTilePath tile
+    sprite <- loadSprite path
+    case sprite of
+      Just pic -> modifyIORef cache (M.insert path pic)
+      Nothing -> return ()
+  
+  -- Load UI icons
+  let uiIcons = ["ui_coin", "ui_heart", "ui_shield", "ui_sword", "ui_fire", "ui_lightning", "ui_poison", "ui_skull"]
+  
+  forM_ uiIcons $ \icon -> do
+    let path = getUIIconPath icon
+    sprite <- loadSprite path
+    case sprite of
+      Just pic -> modifyIORef cache (M.insert path pic)
+      Nothing -> return ()
+  
+  finalCache <- readIORef cache
+  return $ Assets { assetsCache = finalCache }
 
-  , ("tower_archer.png", (32,32), simplePainter (PixelRGBA8 100 140 80 255))
-  , ("tower_ballista.png", (36,36), simplePainter (PixelRGBA8 140 120 100 255))
-  , ("tower_fire.png", (34,34), simplePainter (PixelRGBA8 200 120 80 255))
-  , ("tower_frost.png", (34,34), simplePainter (PixelRGBA8 120 180 220 255))
-  , ("tower_lightning.png", (34,34), simplePainter (PixelRGBA8 220 220 120 255))
-  , ("tower_barrage.png", (34,34), simplePainter (PixelRGBA8 160 120 160 255))
-  , ("tower_guardian.png", (38,38), simplePainter (PixelRGBA8 200 200 180 255))
+-- Get a sprite from cache by path
+getSprite :: FilePath -> Assets -> Maybe Picture
+getSprite path assets = M.lookup path (assetsCache assets)
 
-  , ("trap_spikepit.png", (28,28), simplePainter (PixelRGBA8 100 100 100 255))
-  , ("trap_tarpit.png", (28,28), simplePainter (PixelRGBA8 60 40 30 255))
-  , ("trap_firepot.png", (28,28), simplePainter (PixelRGBA8 220 120 40 255))
-  , ("trap_explosiverune.png", (30,30), simplePainter (PixelRGBA8 200 80 80 255))
-  , ("trap_caltrop.png", (28,28), simplePainter (PixelRGBA8 140 140 140 255))
+-- Helper to get sprite path for rendering
+getTowerSpritePath :: TowerType -> AnimationType -> Int -> FilePath
+getTowerSpritePath towerType animType frame =
+  getSpritePath "towers" (towerSpriteName towerType) animType frame
 
-  , ("proj_arrow.png", (12,6), simplePainter (PixelRGBA8 200 200 160 255))
-  , ("proj_ballistabolt.png", (14,8), simplePainter (PixelRGBA8 160 160 160 255))
-  , ("proj_fireball.png", (14,14), simplePainter (PixelRGBA8 255 120 40 255))
-  , ("proj_iceshard.png", (10,14), simplePainter (PixelRGBA8 120 200 255 255))
-  , ("proj_lightning.png", (12,12), simplePainter (PixelRGBA8 255 255 120 255))
-  , ("proj_barrage.png", (10,10), simplePainter (PixelRGBA8 180 160 140 255))
-  , ("proj_catapultrock.png", (18,18), simplePainter (PixelRGBA8 120 120 100 255))
+getEnemySpritePath :: UnitType -> AnimationType -> Int -> FilePath
+getEnemySpritePath enemyType animType frame =
+  let category = if enemyType `elem` [IronbackMinotaur, FireDrake, LichKingArcthros]
+                 then "bosses"
+                 else "enemies"
+  in getSpritePath category (enemySpriteName enemyType) animType frame
 
-  , ("fort_gate.png", (64,64), simplePainter (PixelRGBA8 120 80 40 255))
-  , ("castle.png", (80,80), simplePainter (PixelRGBA8 160 140 100 255))
-  ]
+getTrapSpritePath :: TrapType -> AnimationType -> Int -> FilePath
+getTrapSpritePath trapType animType frame =
+  getSpritePath "traps" (trapSpriteName trapType) animType frame
 
--- Very small helper painter that produces a colored rounded-ish sprite with simple shading
-simplePainter :: PixelRGBA8 -> (PixelRGBA8 -> PixelRGBA8 -> PixelRGBA8)
-simplePainter (PixelRGBA8 r g b a) _ _ = PixelRGBA8 r g b a
+getProjectileSpritePath :: ProjectileType -> Int -> FilePath
+getProjectileSpritePath projType frame =
+  getSpritePath "projectiles" (projectileSpriteName projType) AnimFlying frame

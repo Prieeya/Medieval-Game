@@ -17,6 +17,7 @@ initialWorld = World
   , towers = M.empty
   , traps = M.empty
   , projectiles = M.empty
+  , decorations = initialDecorations
   , visualEffects = []
   , resources = initialResources
   , abilities = initialAbilities
@@ -179,6 +180,7 @@ createEnemy eid ut pos side time =
       role = unitTypeToRole ut
       canClimb = False  -- No climbing enemies in new design
       prefs = unitTypePreferences ut
+      initialAnim = AnimationState { animType = AnimMove, animFrame = 0, animTime = 0 }
   in Enemy
     { enemyId = eid
     , enemyType = ut
@@ -203,6 +205,8 @@ createEnemy eid ut pos side time =
     , enemyAttackCooldown = cd
     , enemyHitFlash = 0
     , enemySpawnSide = side
+    , enemyAnimState = initialAnim
+    , enemyDeathTimer = 0
     }
 
 unitTypeToRole :: UnitType -> UnitRole
@@ -233,6 +237,7 @@ createTower :: EntityId -> TowerType -> Vec2 -> Float -> Tower
 createTower tid tt pos time =
   let (range, dmg, fr) = towerStats tt
       maxHP = Constants.towerMaxHP tt
+      initialAnim = AnimationState { animType = AnimIdle, animFrame = 0, animTime = 0 }
   in Tower
     { towerId = tid
     , towerType = tt
@@ -247,6 +252,8 @@ createTower tid tt pos time =
     , towerDamageDealt = 0
     , towerHP = maxHP
     , Types.towerMaxHP = maxHP
+    , towerAnimState = initialAnim
+    , towerDeathTimer = 0
     }
 
 -- ============================================================================
@@ -259,3 +266,43 @@ initialUpgradeUnlock = UpgradeUnlock
   , upgradeCost = 100
   , upgradeUnlocked = False
   }
+
+-- ============================================================================
+-- Decoration Initialization
+-- ============================================================================
+
+initialDecorations :: M.Map EntityId Decoration
+initialDecorations = M.fromList $ zip [1..] $ generateDecorations
+
+-- Generate random decorations scattered around grass (not on path or castle)
+generateDecorations :: [Decoration]
+generateDecorations =
+  let
+    -- Generate positions avoiding path and castle area
+    positions = filter isValidDecoPosition [
+      (-600, -200), (-500, 100), (-400, -300), (-300, 200),
+      (-200, -100), (-100, 300), (0, -250), (100, 150),
+      (200, -300), (300, 100), (500, -200), (600, 250),
+      (-550, 0), (-450, -150), (-350, 250), (-250, -200),
+      (-150, 50), (-50, -300), (50, 200), (150, -100),
+      (250, 300), (350, -150), (450, 100), (550, -250)
+      ]
+    decoTypes = cycle [TreeSmall, TreeLarge, Bush, Rock]
+  in zipWith (\id (pos, decoType) -> Decoration
+    { decoId = id
+    , decoType = decoType
+    , decoPos = pos
+    }) [2000..] (zip positions decoTypes)
+
+isValidDecoPosition :: Vec2 -> Bool
+isValidDecoPosition (x, y) =
+  -- Not inside fort
+  not (x >= fortLeft && x <= fortRight && y >= fortBottom && y <= fortTop) &&
+  -- Not too close to spawn points
+  not (x >= leftSpawnX - 100 && x <= leftSpawnX + 100) &&
+  not (x >= centerSpawnX - 100 && x <= centerSpawnX + 100) &&
+  not (x >= rightSpawnX - 100 && x <= rightSpawnX + 100) &&
+  -- Not too close to castle
+  distance (x, y) (castleX, castleY) > 200
+  where
+    distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)
