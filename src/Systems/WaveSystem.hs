@@ -1,7 +1,8 @@
 module Systems.WaveSystem where
 
 import Types
-import Constants
+import qualified Constants
+import Constants (wavesPerLevel, buildPhaseTime, bossPhaseTime, waveCountdownTime, baseWaveGold, spawnYRange, leftSpawnX, centerSpawnX, rightSpawnX, baseEnemyCount, enemyCountScaling)
 import Config
 import qualified AI.Director as Director
 import qualified Data.Map.Strict as M
@@ -177,7 +178,7 @@ repairGate :: Gate -> Gate
 repairGate gate =
   gate
     { gateHP = Constants.gateMaxHP
-    , Types.gateMaxHP = Constants.gateMaxHP
+    , gateMaxHP = Constants.gateMaxHP
     , gateDestroyed = False
     }
 

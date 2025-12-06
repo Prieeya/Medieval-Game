@@ -1,24 +1,6 @@
 cabal-version:      2.4
 name:               medieval-siege
 version:            0.1.0.0
-<<<<<<< HEAD
-license:            MIT
-author:             Your Name
-maintainer:         your.email@example.com
-build-type:         Simple
-
-executable siege
-    main-is:          Main.hs
-    other-modules:    Types,
-                      Constants,
-                      Utils,
-                      Rendering
-    build-depends:    base >=4.14 && <5,
-                      gloss >=1.13,
-                      containers >=0.6
-    default-language: Haskell2010
-    ghc-options:      -O2 -threaded -rtsopts
-=======
 synopsis:           Medieval Siege Defense Game
 description:        A strategic, adaptive arcade-style medieval siege defense game
 license:            BSD-3-Clause
@@ -83,4 +65,3 @@ executable medieval-siege
                       , sdl2-mixer >= 1.2
     cpp-options:         -DUSE_SDL2_MIXER
   ghc-options:        -O2 -threaded -rtsopts -with-rtsopts=-N
->>>>>>> 0795086 (Initial commit)

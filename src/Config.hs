@@ -1,7 +1,8 @@
 module Config where
 
 import Types
-import Constants
+import qualified Constants
+import Constants (castleX, castleY, gateX, gateY, fortLeft, fortRight, fortTop, fortBottom, fortCenterX, startingGold, buildPhaseTime, leftSpawnX, centerSpawnX, rightSpawnX, towerStats, enemyStats)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 
@@ -42,8 +43,8 @@ initialCastle :: Castle
 initialCastle = Castle
   { castlePos = (castleX, castleY)
   , castleHP = Constants.castleMaxHP
-  , Types.castleMaxHP = Constants.castleMaxHP
-  , Types.castleSize = Constants.castleSize
+  , castleMaxHP = Constants.castleMaxHP
+  , castleSize = Constants.castleSize
   }
 
 initialFort :: Fort
@@ -58,8 +59,8 @@ initialGate :: Gate
 initialGate = Gate
   { gatePos = (gateX, gateY)
   , gateHP = Constants.gateMaxHP
-  , Types.gateMaxHP = Constants.gateMaxHP
-  , Types.gateWidth = Constants.gateWidth
+  , gateMaxHP = Constants.gateMaxHP
+  , gateWidth = Constants.gateWidth
   , gateDestroyed = False
   }
 
@@ -252,7 +253,7 @@ createTower tid tt pos time =
     , towerKills = 0
     , towerDamageDealt = 0
     , towerHP = maxHP
-    , Types.towerMaxHP = maxHP
+    , towerMaxHP = maxHP
     , towerAnimState = initialAnim
     , towerDeathTimer = 0
     }

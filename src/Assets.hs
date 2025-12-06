@@ -12,6 +12,7 @@ import Graphics.Gloss.Juicy (loadJuicyPNG)
 import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad (forM_)
+import Control.Exception (catch, SomeException)
 import Types (TowerType(..), TrapType(..), UnitType(..), ProjectileType(..), AnimationType(..))
 import Data.Char (toLower)
 
@@ -117,7 +118,9 @@ loadSprite path = do
   exists <- doesFileExist path
   if exists
     then do
-      result <- loadJuicyPNG path
+      result <- catch (loadJuicyPNG path) (\e -> do
+        putStrLn $ "Warning: Failed to load " ++ path ++ ": " ++ show (e :: SomeException)
+        return Nothing)
       case result of
         Just pic -> return $ Just pic
         Nothing -> return Nothing
@@ -128,6 +131,7 @@ loadAllSprites :: IO Assets
 loadAllSprites = do
   ensureAssets
   cache <- newIORef M.empty
+  putStrLn "Loading tower sprites..."
   
   -- Load tower sprites
   let towerTypes = [ArrowTower, CatapultTower, CrossbowTower, FireTower, TeslaTower, BallistaTower, PoisonTower, BombardTower]
@@ -152,6 +156,7 @@ loadAllSprites = do
   let enemyTypes = [GruntRaider, BruteCrusher, Direwolf, Shieldbearer, Pyromancer, Necromancer, BoulderRamCrew]
       enemyAnimTypes = [AnimIdle, AnimMove, AnimAttack, AnimDeath]
   
+  putStrLn "Loading enemy sprites..."
   forM_ enemyTypes $ \enemyType -> do
     let name = enemySpriteName enemyType
     forM_ enemyAnimTypes $ \animType -> do
@@ -171,6 +176,7 @@ loadAllSprites = do
   -- Load boss sprites
   let bossTypes = [IronbackMinotaur, FireDrake, LichKingArcthros]
   
+  putStrLn "Loading boss sprites..."
   forM_ bossTypes $ \bossType -> do
     let name = enemySpriteName bossType
     forM_ enemyAnimTypes $ \animType -> do
@@ -191,6 +197,7 @@ loadAllSprites = do
   let trapTypes = [SpikeTrap, FreezeTrap, FirePitTrap, MagicSnareTrap, ExplosiveBarrel]
       trapAnimTypes = [AnimIdle, AnimAttack]  -- idle and trigger
   
+  putStrLn "Loading trap sprites..."
   forM_ trapTypes $ \trapType -> do
     let name = trapSpriteName trapType
     forM_ trapAnimTypes $ \animType -> do
@@ -208,6 +215,7 @@ loadAllSprites = do
   -- Load projectile sprites
   let projTypes = [Arrow, BallistaBolt, Fireball, IceShard, LightningBolt, CatapultRock, BarrageShot]
   
+  putStrLn "Loading projectile sprites..."
   forM_ projTypes $ \projType -> do
     let name = projectileSpriteName projType
     forM_ [0..2] $ \frame -> do  -- 3 frames for projectiles
@@ -226,6 +234,7 @@ loadAllSprites = do
                   "castle_gate_closed", "castle_gate_open_top", "castle_gate_open_bottom",
                   "castle_floor_stone"]
   
+  putStrLn "Loading environment tiles..."
   forM_ envTiles $ \tile -> do
     let path = getEnvironmentTilePath tile
     sprite <- loadSprite path
@@ -236,6 +245,7 @@ loadAllSprites = do
   -- Load UI icons
   let uiIcons = ["ui_coin", "ui_heart", "ui_shield", "ui_sword", "ui_fire", "ui_lightning", "ui_poison", "ui_skull"]
   
+  putStrLn "Loading UI icons..."
   forM_ uiIcons $ \icon -> do
     let path = getUIIconPath icon
     sprite <- loadSprite path
@@ -243,6 +253,7 @@ loadAllSprites = do
       Just pic -> modifyIORef cache (M.insert path pic)
       Nothing -> return ()
   
+  putStrLn "Finalizing asset cache..."
   finalCache <- readIORef cache
   return $ Assets { assetsCache = finalCache }
 

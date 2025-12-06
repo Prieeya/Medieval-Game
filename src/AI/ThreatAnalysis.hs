@@ -1,7 +1,7 @@
 module AI.ThreatAnalysis where
 
 import Types
-import Constants
+import Constants hiding (gateMaxHP, castleMaxHP)
 import qualified Data.Map.Strict as M
 import qualified Data.List as L
 
@@ -105,14 +105,14 @@ analyzeGateDamage :: World -> Float
 analyzeGateDamage world =
   let gate = fortGate (fort world)
       currentHP = gateHP gate
-      maxHP = Types.gateMaxHP gate
+      maxHP = gateMaxHP gate
   in 1.0 - (currentHP / maxHP)
 
 analyzeCastleDamage :: World -> Float
 analyzeCastleDamage world =
   let c = castle world
       currentHP = castleHP c
-      maxHP = Types.castleMaxHP c
+      maxHP = castleMaxHP c
   in 1.0 - (currentHP / maxHP)
 
 -- ============================================================================

@@ -2,7 +2,8 @@ module Input.InputHandler where
 
 import Graphics.Gloss.Interface.Pure.Game
 import Types
-import Constants
+import qualified Constants
+import Constants (towerCost, trapCost, fortLeft, fortRight, fortTop, fortBottom)
 import Config
 import qualified Systems.ResourceSystem as ResourceSystem
 import qualified Systems.AbilitySystem as AbilitySystem
@@ -177,7 +178,7 @@ upgradeTower tower =
   let lvl = towerLevel tower + 1
       mult = 1.0 + fromIntegral lvl * 0.3
       hpMult = 1.0 + fromIntegral lvl * 0.2  -- HP increases by 20% per level
-      currentMaxHP = Types.towerMaxHP tower
+      currentMaxHP = towerMaxHP tower
       newMaxHP = currentMaxHP * hpMult
       -- Restore HP to new max when upgraded (heal the tower)
       newHP = newMaxHP
@@ -187,7 +188,7 @@ upgradeTower tower =
     , towerDamage = towerDamage tower * mult
     , towerFireRate = towerFireRate tower * 0.95
     , towerHP = newHP
-    , Types.towerMaxHP = newMaxHP
+    , towerMaxHP = newMaxHP
     }
 
 findTowerAt :: Vec2 -> World -> Maybe Tower

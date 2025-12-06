@@ -2,7 +2,7 @@ module Rendering.RenderWorld where
 
 import Graphics.Gloss
 import Types
-import Constants
+import Constants hiding (gateMaxHP, castleMaxHP, towerMaxHP, castleSize, gateWidth)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Strict as Map
 import System.IO.Unsafe (unsafePerformIO)
@@ -250,11 +250,11 @@ renderWall wall =
 renderGate :: Gate -> Picture
 renderGate gate =
   let (x, y) = gatePos gate
-      gateHeight = Types.gateWidth gate
-      gateWidth = 60  -- Wider gate
+      gateHeight = gateWidth gate
+      gateWidth' = 60  -- Wider gate
   in pictures
-    [ renderPixelGate x y gateWidth gateHeight (gateDestroyed gate)
-    , translate x (y + gateHeight/2 + 2) $ renderHealthBar (gateHP gate) (Types.gateMaxHP gate) 50
+    [ renderPixelGate x y gateWidth' gateHeight (gateDestroyed gate)
+    , translate x (y + gateHeight/2 + 2) $ renderHealthBar (gateHP gate) (gateMaxHP gate) 50
     ]
 
 -- ============================================================================
@@ -265,10 +265,10 @@ renderCastle :: World -> Picture
 renderCastle world =
   let c = castle world
       (x, y) = castlePos c
-      size = Types.castleSize c * 4.0  -- Much larger castle matching JSON description
+      size = castleSize c * 4.0  -- Much larger castle matching JSON description
   in pictures
     [ renderPixelCastle x y size
-    , translate x (y + size/2 + 2) $ renderHealthBar (castleHP c) (Types.castleMaxHP c) (size * 0.8)
+    , translate x (y + size/2 + 2) $ renderHealthBar (castleHP c) (castleMaxHP c) (size * 0.8)
     ]
 
 -- ============================================================================
@@ -408,7 +408,7 @@ renderTower currentTime tower =
       size = baseSize * globalPixelScale * towerScale
       range = towerRange tower
       -- NO range indicator after placement (only show during preview)
-      healthBar = renderHealthBar (towerHP tower) (Types.towerMaxHP tower) size
+      healthBar = renderHealthBar (towerHP tower) (towerMaxHP tower) size
       -- Use animated sprite rendering with scaled size
       sprite = renderAnimatedTower (towerType tower) (towerAnimState tower) size
   in translate x y $ pictures

@@ -2,10 +2,10 @@ module Rendering.RenderUI where
 
 import Graphics.Gloss
 import Types
-import Constants
+import Constants hiding (castleMaxHP)
+import qualified Constants as C
 import qualified Data.Map.Strict as M
 import Rendering.PixelArt (pixelColor)
-import qualified Constants as C
 
 -- ============================================================================
 -- UI Rendering - Medieval Pixel Art Theme
@@ -179,7 +179,7 @@ renderCastleHPBar :: World -> Picture
 renderCastleHPBar world =
   let c = castle world
       currentHP = castleHP c
-      maxHP = Types.castleMaxHP c
+      maxHP = castleMaxHP c
       ratio = currentHP / maxHP
       barX = worldWidth/2 - 200
       barY = worldHeight/2 - 80
