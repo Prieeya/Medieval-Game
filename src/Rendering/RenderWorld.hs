@@ -254,7 +254,7 @@ renderGate gate =
       gateWidth = 60  -- Wider gate
   in pictures
     [ renderPixelGate x y gateWidth gateHeight (gateDestroyed gate)
-    , translate x (y + gateHeight/2 + 12) $ renderHealthBar (gateHP gate) (Types.gateMaxHP gate) 50
+    , translate x (y + gateHeight/2 + 2) $ renderHealthBar (gateHP gate) (Types.gateMaxHP gate) 50
     ]
 
 -- ============================================================================
@@ -268,7 +268,7 @@ renderCastle world =
       size = Types.castleSize c * 4.0  -- Much larger castle matching JSON description
   in pictures
     [ renderPixelCastle x y size
-    , translate x (y + size/2 + 20) $ renderHealthBar (castleHP c) (Types.castleMaxHP c) (size * 0.8)
+    , translate x (y + size/2 + 2) $ renderHealthBar (castleHP c) (Types.castleMaxHP c) (size * 0.8)
     ]
 
 -- ============================================================================
@@ -297,7 +297,7 @@ renderEnemy currentTime enemy =
   in translate x y $ pictures
     [ sprite
     , color flashColor $ circleSolid (finalSize + 2)
-    , translate 0 (finalSize + 8) healthBar
+    , translate 0 (finalSize/2 + 2) healthBar
     ]
 
 -- Fallback shape-based enemy sprites (kept as-is for when PNGs are missing)
@@ -413,8 +413,7 @@ renderTower currentTime tower =
       sprite = renderAnimatedTower (towerType tower) (towerAnimState tower) size
   in translate x y $ pictures
     [ sprite
-    , translate 0 (size + 8) healthBar
-    , color white $ translate 0 (size/2 + 8) $ scale 0.12 0.12 $ text $ "Lvl" ++ show (towerLevel tower)
+    , translate 0 (size/2 + 0) healthBar
     ]
 
 -- Render arch-shaped range indicator based on tower type
@@ -579,11 +578,14 @@ renderTrap :: Float -> Trap -> Picture
 renderTrap currentTime trap =
   let (x, y) = trapPos trap
       baseSize = 64  -- 64x64 base resolution as per JSON
-      -- Apply scaling: smaller defenses
-      size = baseSize * globalPixelScale * towerScale  -- Use towerScale for consistency
+      -- Apply scaling: traps are smaller than towers
+      size = baseSize * globalPixelScale * trapScale  -- Use trapScale for smaller traps
       -- Use animated sprite rendering
       sprite = renderAnimatedTrap (trapType trap) (trapAnimState trap) size
-  in translate x y sprite
+      -- Always render pixel art fallback first, then sprite on top (if loaded)
+      -- This ensures traps are always visible even if sprites fail to load
+      fallbackSprite = renderTrapSprite (trapType trap) size
+  in translate x y $ pictures [fallbackSprite, sprite]
 
 renderTrapSprite :: TrapType -> Float -> Picture
 renderTrapSprite SpikeTrap size =
@@ -746,7 +748,7 @@ renderEffect (DamageNumber pos dmg life) =
 renderHealthBar :: Float -> Float -> Float -> Picture
 renderHealthBar current max' width =
   let ratio = current / max'
-      barWidth = width * 1.5  -- Reduced from 2.0
+      barWidth = width * 0.3  -- HP bar length multiplier (decreased from 1.5)
       barHeight = 2  -- Reduced from 3
       greenWidth = barWidth * ratio
   in pictures

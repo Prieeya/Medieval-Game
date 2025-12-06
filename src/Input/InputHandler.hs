@@ -6,6 +6,7 @@ import Constants
 import Config
 import qualified Systems.ResourceSystem as ResourceSystem
 import qualified Systems.AbilitySystem as AbilitySystem
+import qualified Systems.WaveSystem as WaveSystem
 import qualified Data.Map.Strict as M
 
 -- ============================================================================
@@ -61,6 +62,10 @@ handleKeyEvent key keyState mousePos world = case (key, keyState) of
   
   -- Cancel Build
   (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
+  
+  -- Gate Repair (only if repair is pending)
+  (Char 'g', Down) -> repairGateIfPending world
+  (Char 'G', Down) -> repairGateIfPending world
   
   -- Abilities
   (Char 'q', Down) -> AbilitySystem.activateAbility Firestorm world
@@ -212,6 +217,28 @@ isValidTrapPlacement :: Vec2 -> World -> Bool
 isValidTrapPlacement pos world =
   let tooCloseToTrap = any (\t -> distance (trapPos t) pos < 30) (M.elems $ traps world)
   in not tooCloseToTrap
+
+-- ============================================================================
+-- Gate Repair
+-- ============================================================================
+
+repairGateIfPending :: World -> World
+repairGateIfPending world =
+  let ws = waveState world
+      repairPending = wsGateRepairPending ws
+      isGateDestroyed = gateDestroyed (fortGate $ fort world)
+      hasEnoughGold = resGold (resources world) >= Constants.gateRepairCost
+  in if repairPending && isGateDestroyed && hasEnoughGold
+     then
+       let -- Deduct gold
+           resources' = ResourceSystem.spendGold Constants.gateRepairCost (resources world)
+           -- Repair gate using WaveSystem function
+           gate' = WaveSystem.repairGate (fortGate $ fort world)
+           fort' = (fort world) { fortGate = gate' }
+           -- Clear repair pending flag
+           ws' = ws { wsGateRepairPending = False }
+       in world { resources = resources', fort = fort', waveState = ws' }
+     else world  -- Do nothing if conditions not met
 
 -- ============================================================================
 -- Utilities

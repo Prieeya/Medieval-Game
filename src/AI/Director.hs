@@ -130,21 +130,21 @@ calculateCounters towerComp baseCount =
 
 calculateDifficultyMultiplier :: ThreatData -> Int -> Float
 calculateDifficultyMultiplier threat level =
-  let baseMultiplier = 1.0 + fromIntegral level * 0.2
+  let baseMultiplier = 1.0 + fromIntegral level * 0.15  -- Reduced from 0.2
       
-      -- If player is rich, increase difficulty
+      -- If player is rich, increase difficulty (reduced bonus)
       goldMult = if tdPlayerGold threat > 1000
-                 then 1.3
+                 then 1.15  -- Reduced from 1.3
                  else 1.0
       
-      -- If castle is undamaged, increase difficulty
+      -- If castle is undamaged, increase difficulty (reduced bonus)
       castleMult = if tdCastleDamageRatio threat < 0.1
-                   then 1.2
+                   then 1.1  -- Reduced from 1.2
                    else 1.0
       
-      -- If clearing waves fast, increase difficulty
+      -- If clearing waves fast, increase difficulty (reduced bonus)
       timeMult = if tdAverageClearTime threat < 30
-                 then 1.25
+                 then 1.15  -- Reduced from 1.25
                  else 1.0
   in baseMultiplier * goldMult * castleMult * timeMult
 

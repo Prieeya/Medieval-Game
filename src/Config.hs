@@ -98,6 +98,7 @@ initialWaveState = WaveState
   , wsSpawnTimer = 0
   , wsWaveCleared = False
   , wsLevelCleared = False
+  , wsGateRepairPending = False
   }
 
 initialThreatData :: ThreatData

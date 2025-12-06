@@ -264,7 +264,12 @@ getEnemySpritePath enemyType animType frame =
 
 getTrapSpritePath :: TrapType -> AnimationType -> Int -> FilePath
 getTrapSpritePath trapType animType frame =
-  getSpritePath "traps" (trapSpriteName trapType) animType frame
+  -- Traps use "trigger" folder instead of "attack" folder
+  let animFolder = case animType of
+                    AnimAttack -> "trigger"  -- Traps use "trigger" not "attack"
+                    _ -> animationFolderName animType
+      name = trapSpriteName trapType
+  in imagesPath </> "traps" </> name </> animFolder </> show frame <.> "png"
 
 getProjectileSpritePath :: ProjectileType -> Int -> FilePath
 getProjectileSpritePath projType frame =

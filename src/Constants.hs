@@ -24,8 +24,8 @@ fortCenterX :: Float
 fortCenterX = 400
 
 fortWidth, fortHeight :: Float
-fortWidth = 400
-fortHeight = 600
+fortWidth = 550  -- Increased from 400
+fortHeight = 750  -- Increased from 600
 
 fortLeft, fortRight, fortTop, fortBottom :: Float
 fortLeft = fortCenterX - fortWidth / 2
@@ -65,6 +65,9 @@ buildPhaseTime = 30.0
 
 bossPhaseTime :: Float
 bossPhaseTime = 60.0
+
+waveCountdownTime :: Float
+waveCountdownTime = 10.0  -- Countdown before enemies spawn (in seconds)
 
 baseEnemyCount :: Int
 baseEnemyCount = 10
@@ -215,6 +218,9 @@ castleMaxHP = 2000
 startingGold :: Int
 startingGold = 500
 
+gateRepairCost :: Int
+gateRepairCost = 50
+
 baseWaveGold :: Int
 baseWaveGold = 200
 
@@ -266,6 +272,9 @@ enemyScale = 1.4  -- 40% bigger
 
 towerScale :: Float
 towerScale = 1.2  -- Reduced from 1.4 (defenses smaller)
+
+trapScale :: Float
+trapScale = 0.1  -- Traps are smaller (reduced from 0.2)
 
 projectileScale :: Float
 projectileScale = 2.0  -- Reduced from 3.5 (bullets smaller)

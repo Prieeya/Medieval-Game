@@ -18,6 +18,8 @@ updateWaveSystem dt world =
       updateBuildPhase dt timeLeft world
     BossIncoming timeLeft ->
       updateBossIncoming dt timeLeft world
+    WaveCountdown timeLeft ->
+      updateWaveCountdown dt timeLeft world
     InWave ->
       updateInWave dt world
 
@@ -47,6 +49,22 @@ updateBossIncoming dt timeLeft world
   | otherwise =
       let ws = waveState world
           ws' = ws { wsPhase = BossIncoming (timeLeft - dt) }
+      in world { waveState = ws' }
+
+-- ============================================================================
+-- Wave Countdown Phase
+-- ============================================================================
+
+updateWaveCountdown :: Float -> Float -> World -> World
+updateWaveCountdown dt timeLeft world
+  | timeLeft - dt <= 0 =
+      -- Countdown finished, start spawning enemies
+      let ws = waveState world
+          ws' = ws { wsPhase = InWave }
+      in world { waveState = ws' }
+  | otherwise =
+      let ws = waveState world
+          ws' = ws { wsPhase = WaveCountdown (timeLeft - dt) }
       in world { waveState = ws' }
 
 -- ============================================================================
@@ -96,7 +114,7 @@ startRegularWave waveNum world =
       
       ws' = ws
         { wsWaveInLevel = waveNum
-        , wsPhase = InWave
+        , wsPhase = WaveCountdown waveCountdownTime  -- Start with countdown
         , wsEnemiesSpawned = 0
         , wsEnemiesToSpawn = enemyCount
         , wsSpawnTimer = 0
@@ -116,7 +134,7 @@ startBossWave world =
       
       ws' = ws
         { wsWaveInLevel = wavesPerLevel + 1
-        , wsPhase = InWave
+        , wsPhase = WaveCountdown waveCountdownTime  -- Start with countdown
         , wsEnemiesSpawned = 0
         , wsEnemiesToSpawn = enemyCount
         , wsSpawnTimer = 0
@@ -145,11 +163,23 @@ onWaveCleared world =
 transitionToBuildPhase :: World -> World
 transitionToBuildPhase world =
   let ws = waveState world
+      isGateDestroyed = gateDestroyed (fortGate $ fort world)
       ws' = ws
         { wsPhase = BuildPhase buildPhaseTime
         , wsWaveCleared = True
+        , wsGateRepairPending = isGateDestroyed  -- Set repair pending if gate is destroyed
         }
+      -- Do NOT automatically repair gate - player must pay to repair
   in world { waveState = ws' }
+
+-- Repair gate to full health
+repairGate :: Gate -> Gate
+repairGate gate =
+  gate
+    { gateHP = Constants.gateMaxHP
+    , Types.gateMaxHP = Constants.gateMaxHP
+    , gateDestroyed = False
+    }
 
 transitionToBossPrep :: World -> World
 transitionToBossPrep world =
@@ -158,7 +188,9 @@ transitionToBossPrep world =
         { wsPhase = BossIncoming bossPhaseTime
         , wsWaveInLevel = wavesPerLevel
         }
-  in world { waveState = ws' }
+      -- Repair gate before boss wave
+      fort' = (fort world) { fortGate = repairGate (fortGate $ fort world) }
+  in world { waveState = ws', fort = fort' }
 
 onLevelCleared :: World -> World
 onLevelCleared world =
@@ -170,7 +202,9 @@ onLevelCleared world =
         , wsLevelCleared = True
         , wsWaveCleared = True
         }
-  in world { waveState = ws' }
+      -- Repair gate when level is cleared
+      fort' = (fort world) { fortGate = repairGate (fortGate $ fort world) }
+  in world { waveState = ws', fort = fort' }
 
 -- ============================================================================
 -- Enemy Spawning
@@ -210,9 +244,10 @@ spawnNextEnemy world =
           
           enemyBase = createEnemy (nextEntityId world) enemyType (spawnX, spawnY) spawnSide (timeElapsed world)
           -- Adaptive difficulty: scale enemy stats slightly based on level and player's towers
+          -- Reduced scaling for better balance
           towerCount = M.size (towers world)
           level = wsLevel (waveState world)
-          scale = 1.0 + 0.05 * fromIntegral level + 0.02 * fromIntegral towerCount
+          scale = 1.0 + 0.03 * fromIntegral level + 0.01 * fromIntegral towerCount
           enemy = enemyBase
             { enemyHP = enemyHP enemyBase * scale
             , enemyMaxHP = enemyMaxHP enemyBase * scale

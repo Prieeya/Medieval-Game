@@ -45,8 +45,11 @@ renderUI world = pictures
   , renderCastleHPBar world
   , renderTowerHotbar world
   , renderTrapHotbar world
-  , renderBuildModeDisplay world
+  -- Removed renderBuildModeDisplay - was showing empty white box
+  -- , renderBuildModeDisplay world
   , renderGameStatus world
+  , renderWaveTimer world
+  , renderGateRepairPrompt world
   ]
 
 -- ============================================================================
@@ -180,7 +183,7 @@ renderCastleHPBar world =
       ratio = currentHP / maxHP
       barX = worldWidth/2 - 200
       barY = worldHeight/2 - 80
-      barWidth = 300  -- Reduced from 400
+      barWidth = 150  -- Castle HP bar width
       barHeight = 20  -- Reduced from 30
       -- Determine color based on health state
       (barColor, state) = if ratio > 0.7 then (makeColor 0.2 0.8 0.2 1, "healthy")
@@ -351,6 +354,63 @@ renderBuildModeDisplay world =
       in tooltip
 
 -- ============================================================================
+-- Wave Timer Display
+-- ============================================================================
+
+renderWaveTimer :: World -> Picture
+renderWaveTimer world =
+  case wsPhase (waveState world) of
+    BuildPhase timeLeft ->
+      let timerX = 0
+          timerY = 200  -- Center-top of screen
+          timeRemaining = max 0 timeLeft
+          seconds = ceiling timeRemaining
+          -- Build phase timer display
+          timerPanel = translate timerX timerY $ pictures
+            [ color (makeColor 0.1 0.1 0.1 0.8) $ rectangleSolid 350 120
+            , color darkWoodBrown $ rectangleWire 350 120
+            , translate 0 30 $ 
+                color (makeColor 0.8 0.8 1.0 1) $ scale 0.15 0.15 $ text "BUILD PHASE"
+            , translate 0 (-30) $ 
+                color (if seconds <= 5 then (makeColor 1.0 0.6 0.0 1) else (makeColor 0.6 0.8 1.0 1)) $ 
+                scale 0.5 0.5 $ text (show seconds)
+            ]
+      in timerPanel
+    WaveCountdown timeLeft ->
+      let timerX = 0
+          timerY = 200  -- Center-top of screen
+          timeRemaining = max 0 timeLeft
+          seconds = ceiling timeRemaining
+          -- Large, prominent timer display
+          timerPanel = translate timerX timerY $ pictures
+            [ color (makeColor 0.1 0.1 0.1 0.8) $ rectangleSolid 300 120
+            , color darkWoodBrown $ rectangleWire 300 120
+            , translate 0 30 $ 
+                color (makeColor 1.0 1.0 1.0 1) $ scale 0.15 0.15 $ text "WAVE INCOMING"
+            , translate 0 (-30) $ 
+                color (if seconds <= 2 then (makeColor 1.0 0.2 0.2 1) else (makeColor 1.0 0.9 0.0 1)) $ 
+                scale 0.5 0.5 $ text (show seconds)
+            ]
+      in timerPanel
+    BossIncoming timeLeft ->
+      let timerX = 0
+          timerY = 200  -- Center-top of screen
+          timeRemaining = max 0 timeLeft
+          seconds = ceiling timeRemaining
+          -- Boss incoming timer display
+          timerPanel = translate timerX timerY $ pictures
+            [ color (makeColor 0.2 0.1 0.1 0.8) $ rectangleSolid 350 120
+            , color (makeColor 0.8 0.2 0.2 1) $ rectangleWire 350 120
+            , translate 0 30 $ 
+                color (makeColor 1.0 0.3 0.3 1) $ scale 0.15 0.15 $ text "BOSS INCOMING"
+            , translate 0 (-30) $ 
+                color (if seconds <= 5 then (makeColor 1.0 0.2 0.2 1) else (makeColor 1.0 0.5 0.5 1)) $ 
+                scale 0.5 0.5 $ text (show seconds)
+            ]
+      in timerPanel
+    _ -> blank
+
+-- ============================================================================
 -- Game Status
 -- ============================================================================
 
@@ -381,3 +441,33 @@ renderGameStatus world
         , translate (panelX - 100) panelY $ color (makeColor 0.8 0.6 0.0 1) $ scale 0.2 0.2 $ text "PAUSED"
         ]
   | otherwise = blank
+
+-- ============================================================================
+-- Gate Repair Prompt
+-- ============================================================================
+
+renderGateRepairPrompt :: World -> Picture
+renderGateRepairPrompt world =
+  let ws = waveState world
+      repairPending = wsGateRepairPending ws
+      isGateDestroyed = gateDestroyed (fortGate $ fort world)
+      panelX = 0
+      panelY = -worldHeight/2 + 50  -- Bottom of screen
+      panelWidth = 550  -- Wider box to fit text
+      panelHeight = 60
+  in if repairPending && isGateDestroyed
+     then
+       translate panelX panelY $ pictures
+         [ -- White box background
+           color (makeColor 1.0 1.0 1.0 1.0) $ rectangleSolid panelWidth panelHeight
+         , -- Black border
+           color (makeColor 0.0 0.0 0.0 1.0) $ rectangleWire panelWidth panelHeight
+         , -- Black text (centered inside the box)
+           -- Approximate centering: shift left by half the estimated text width
+           -- Text is ~40 chars, at scale 0.13 each char ~5px = ~200px total, so shift -100px to center
+           translate (-100) 5 $ 
+             color (makeColor 0.0 0.0 0.0 1.0) $ 
+             scale 0.13 0.13 $ 
+             text "Press G to repair the gate for 50 gold"
+         ]
+     else blank

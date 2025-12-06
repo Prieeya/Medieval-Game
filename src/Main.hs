@@ -1,7 +1,7 @@
 module Main where
 
 import Graphics.Gloss
-import Graphics.Gloss.Interface.Pure.Game
+import Graphics.Gloss.Interface.IO.Game
 import Types
 import Config
 import GameLoop
@@ -11,7 +11,8 @@ import Rendering.RenderUI
 import Rendering.RenderDebug
 import Assets (loadAllSprites)
 import Rendering.SpriteAnimation (globalAssets)
-import Data.IORef (writeIORef)
+import Data.IORef (writeIORef, newIORef, readIORef)
+import Audio.Music
 
 -- ============================================================================
 -- Main Entry Point
@@ -27,6 +28,21 @@ main = do
   assets <- loadAllSprites
   writeIORef globalAssets (Just assets)
   putStrLn "Assets loaded!"
+  putStrLn ""
+  putStrLn "Initializing music..."
+  musicState <- initializeMusic
+  musicRef <- newIORef musicState
+  if musicEnabled musicState && musicInitialized musicState
+    then do
+      putStrLn "Music system ready, attempting to play..."
+      -- Start playing background music (tries multiple formats)
+      musicState' <- tryPlayMusic musicState
+      writeIORef musicRef musicState'
+      case currentTrack musicState' of
+        Just track -> putStrLn $ "✓ Music playing: " ++ track
+        Nothing -> putStrLn "⚠ Warning: No music file found or loaded"
+    else putStrLn "⚠ Music system not available"
+  putStrLn ""
   putStrLn ""
   putStrLn "Controls:"
   putStrLn "  4-0: Select tower type to build"
@@ -50,14 +66,51 @@ main = do
   let fps = 60
       world0 = initialWorld
   
-  play
+  playIO
     FullScreen
     black
     fps
     world0
-    render
-    handleInput
-    updateWorld
+    (\world -> return $ render world)
+    (\event world -> do
+        -- Handle pause/unpause for music
+        let wasPaused = isPaused world
+        let world' = handleInput event world
+        let isPaused' = isPaused world'
+        musicState <- readIORef musicRef
+        if wasPaused /= isPaused'
+          then if isPaused'
+               then do musicState' <- pauseMusic musicState
+                       writeIORef musicRef musicState'
+               else do musicState' <- resumeMusic musicState
+                       writeIORef musicRef musicState'
+          else return ()
+        return world'
+    )
+    (\dt world -> return $ updateWorld dt world)
+  
+  -- Cleanup music on exit
+  musicState <- readIORef musicRef
+  cleanupMusic musicState
+
+-- ============================================================================
+-- Music Helper Functions
+-- ============================================================================
+
+-- Try to play music in order: .ogg, .mp3, .wav
+tryPlayMusic :: MusicState -> IO MusicState
+tryPlayMusic musicState = do
+  let formats = ["assets/music/background_music.ogg", 
+                 "assets/music/background_music.mp3", 
+                 "assets/music/background_music.wav"]
+  tryFormats musicState formats
+  where
+    tryFormats state [] = return state
+    tryFormats state (path:paths) = do
+      newState <- playMusic state path
+      if currentTrack newState == Just path
+        then return newState  -- Successfully loaded
+        else tryFormats state paths  -- Try next format
 
 -- ============================================================================
 -- Main Render Function

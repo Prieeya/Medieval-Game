@@ -297,6 +297,7 @@ data WavePhase
   = InWave
   | BuildPhase Float
   | BossIncoming Float
+  | WaveCountdown Float  -- Countdown before enemies spawn
   deriving (Show, Eq, Generic)
 
 data WaveState = WaveState
@@ -308,6 +309,7 @@ data WaveState = WaveState
   , wsSpawnTimer :: Float
   , wsWaveCleared :: Bool
   , wsLevelCleared :: Bool
+  , wsGateRepairPending :: Bool  -- True if gate is destroyed and player needs to repair it
   } deriving (Show, Generic)
 
 -- ============================================================================
