@@ -94,22 +94,24 @@ useFireBreath enemy world =
       (dirX, dirY) = if dist > 0 then (dx/dist, dy/dist) else (1, 0)
       allTowersMap = towers world
       
+      -- Helper function to check if tower is in fire cone
+      checkTower tower =
+        let (tx, ty) = towerPos tower
+            (tdx, tdy) = (tx - x, ty - y)
+            tdist = sqrt (tdx*tdx + tdy*tdy)
+            dot = if tdist > 0.1 then (tdx*dirX + tdy*dirY) / tdist else 0.0
+        in tdist < 200 && dot > 0.5
+      
       -- Find towers in cone in front of drake
       affectedTowers = M.filter checkTower allTowersMap
-        where
-          checkTower tower =
-            let (tx, ty) = towerPos tower
-                (tdx, tdy) = (tx - x, ty - y)
-                tdist = sqrt (tdx*tdx + tdy*tdy)
-                dot = if tdist > 0.1 then (tdx*dirX + tdy*dirY) / tdist else 0.0
-            in tdist < 200 && dot > 0.5
       
       -- Apply fire damage to towers
-      towers' = M.map (\tower -> 
+      applyFireDamage tower =
         let damage = 50.0
             newHP = max 0 (towerHP tower - damage)
         in tower { towerHP = newHP }
-      ) affectedTowers
+      
+      towers' = M.map applyFireDamage affectedTowers
       
       -- Merge damaged towers back
       allTowers = M.union towers' allTowersMap
