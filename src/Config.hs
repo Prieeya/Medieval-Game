@@ -40,6 +40,7 @@ initialWorld = World
   , soundEvents = []
   , shouldExit = False
   , knownTraps = S.empty
+  , gameMessage = Nothing
   }
 
 initialCastle :: Castle

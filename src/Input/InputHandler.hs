@@ -165,6 +165,7 @@ handleMouseClick mousePos world =
       -- Check for UI button clicks (buttons are at top-right)
       -- Quit button: (worldWidth/2 - 80, worldHeight/2 - 60), size 60x25
       -- Reset button: (worldWidth/2 - 80, worldHeight/2 - 90), size 60x25
+      -- Note: Gloss coordinates have (0,0) at center, Y increases upward
       let quitX = halfW - 80
           quitY = halfH - 60
           resetX = halfW - 80
@@ -172,10 +173,10 @@ handleMouseClick mousePos world =
           buttonW = 60
           buttonH = 25
       in if mx >= quitX - buttonW/2 && mx <= quitX + buttonW/2 &&
-            my >= quitY - buttonH/2 && my <= quitY + buttonH/2
+            my <= quitY + buttonH/2 && my >= quitY - buttonH/2
          then requestQuit world
          else if mx >= resetX - buttonW/2 && mx <= resetX + buttonW/2 &&
-                 my >= resetY - buttonH/2 && my <= resetY + buttonH/2
+                 my <= resetY + buttonH/2 && my >= resetY - buttonH/2
               then requestReset world
               else world
 
@@ -221,10 +222,14 @@ upgradeGate world =
              }
            newRes = ResourceSystem.spendGold cost resources'
            fort' = (fort world) { fortGate = newGate }
-           -- Sound
+           -- Sound and message
            events = SoundUpgrade : soundEvents world
-       in world { fort = fort', resources = newRes, soundEvents = events }
-     else world
+           message = Just ("Gate Upgraded to Level " ++ show (lvl + 1) ++ "! (-" ++ show cost ++ "g)", 3.0)
+       in world { fort = fort', resources = newRes, soundEvents = events, gameMessage = message }
+     else 
+       let message = Just ("Not enough gold! Need " ++ show cost ++ "g", 2.0)
+           events = SoundError : soundEvents world
+       in world { gameMessage = message, soundEvents = events }
 
 -- ============================================================================
 -- Building & Placing
@@ -363,21 +368,34 @@ isValidTrapPlacement pos world =
 
 repairGateIfPending :: World -> World
 repairGateIfPending world =
-  let ws = waveState world
-      repairPending = wsGateRepairPending ws
-      isGateDestroyed = gateDestroyed (fortGate $ fort world)
-      hasEnoughGold = resGold (resources world) >= Constants.gateRepairCost
-  in if repairPending && isGateDestroyed && hasEnoughGold
+  let currentGate = fortGate (fort world)
+      currentHP = gateHP currentGate
+      currentMaxHP = gateMaxHP currentGate
+      isDamaged = currentHP < currentMaxHP
+      cost = Constants.gateRepairCost
+      hasEnoughGold = resGold (resources world) >= cost
+  in if isDamaged && hasEnoughGold
      then
        let -- Deduct gold
-           resources' = ResourceSystem.spendGold Constants.gateRepairCost (resources world)
-           -- Repair gate using WaveSystem function
-           gate' = WaveSystem.repairGate (fortGate $ fort world)
+           resources' = ResourceSystem.spendGold cost (resources world)
+           -- Repair gate to full HP
+           gate' = currentGate 
+             { gateHP = currentMaxHP
+             , gateDestroyed = False
+             }
            fort' = (fort world) { fortGate = gate' }
-           -- Clear repair pending flag
+           -- Sound and message
+           events = SoundGateRepaired : soundEvents world
+           message = Just ("Gate Repaired! (-" ++ show cost ++ "g)", 3.0)
+           ws = waveState world
            ws' = ws { wsGateRepairPending = False }
-       in world { resources = resources', fort = fort', waveState = ws' }
-     else world  -- Do nothing if conditions not met
+       in world { fort = fort', resources = resources', waveState = ws', soundEvents = events, gameMessage = message }
+     else if isDamaged && not hasEnoughGold
+          then
+            let message = Just ("Not enough gold! Need " ++ show cost ++ "g to repair", 2.0)
+                events = SoundError : soundEvents world
+            in world { gameMessage = message, soundEvents = events }
+          else world  -- Do nothing if conditions not met
 
 -- ============================================================================
 -- Utilities

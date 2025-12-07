@@ -54,6 +54,7 @@ renderUI world = pictures
   , renderDialog world
   , renderShop world
   , renderHelpMenu world
+  , renderGameMessage world
   ]
 
 -- ============================================================================
@@ -622,3 +623,17 @@ renderHelpMenu world =
             ]
         ]
     _ -> blank
+
+renderGameMessage :: World -> Picture
+renderGameMessage world =
+  case gameMessage world of
+    Nothing -> blank
+    Just (msg, timeLeft) ->
+      let alpha = min 1.0 (timeLeft / 0.5)  -- Fade out in last 0.5 seconds
+          msgColor = makeColor 1.0 0.9 0.2 (alpha * 0.9)  -- Gold/yellow color
+          bgColor = makeColor 0 0 0 (alpha * 0.7)  -- Dark background
+      in translate 0 (worldHeight/2 - 100) $ pictures
+        [ color bgColor $ rectangleSolid 600 60
+        , color darkWoodBrown $ rectangleWire 600 60
+        , translate (-250) (-5) $ scale 0.15 0.15 $ color msgColor $ text msg
+        ]

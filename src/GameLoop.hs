@@ -51,7 +51,8 @@ updateGameSystems dt world =
       world9 = cleanupDead world8'
       world10 = updateVisualEffects dt world9
       world11 = updateThreatAnalysis world10
-  in world11
+      world12 = updateGameMessage dt world11
+  in world12
 
 -- ============================================================================
 -- Enemy Updates
@@ -60,10 +61,11 @@ updateGameSystems dt world =
 updateEnemies :: Float -> World -> World
 updateEnemies dt world =
   let -- Update boss abilities first (returns updated enemies and world)
-      (enemies', world') = M.foldlWithKey (\acc eid enemy ->
-        let (enemy', world'') = BossAbilities.updateBossAbilities dt (snd acc) enemy
-        in (M.insert eid enemy' (fst acc), world'')
-      ) (M.empty, world) (enemies world)
+      updateBoss (enemyMap, w) eid enemy =
+        let (enemy', w') = BossAbilities.updateBossAbilities dt w enemy
+        in (M.insert eid enemy' enemyMap, w')
+      
+      (enemies', world') = M.foldlWithKey updateBoss (M.empty, world) (enemies world)
       -- Then update normal enemy AI and movement
       enemies'' = M.map (updateEnemy dt world') enemies'
   in world' { enemies = enemies'' }
@@ -235,6 +237,20 @@ updateThreatAnalysis :: World -> World
 updateThreatAnalysis world =
   let threatData' = ThreatAnalysis.analyzeThreat world
   in world { threatData = threatData' }
+
+-- ============================================================================
+-- Game Message System
+-- ============================================================================
+
+updateGameMessage :: Float -> World -> World
+updateGameMessage dt world =
+  case gameMessage world of
+    Nothing -> world
+    Just (msg, timeLeft) ->
+      let newTime = timeLeft - dt
+      in if newTime <= 0
+         then world { gameMessage = Nothing }
+         else world { gameMessage = Just (msg, newTime) }
 
 -- ============================================================================
 -- Victory/Defeat Conditions

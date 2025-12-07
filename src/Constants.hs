@@ -67,7 +67,7 @@ bossPhaseTime :: Float
 bossPhaseTime = 60.0
 
 waveCountdownTime :: Float
-waveCountdownTime = 10.0  -- Countdown before enemies spawn (in seconds)
+waveCountdownTime = 0.0  -- No countdown - enemies spawn immediately
 
 baseEnemyCount :: Int
 baseEnemyCount = 10
@@ -92,16 +92,16 @@ spawnYRange = (-350, 350)
 -- ============================================================================
 
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies (7 Total)
-enemyStats GruntRaider = (60, 0, 72, 8, 40, 1.5)      -- Weak melee rusher (reduced range from 20 to 8)
-enemyStats BruteCrusher = (150, 5, 40, 10, 70, 2.5)    -- Slow high-HP tank (reduced range from 30 to 10)
-enemyStats Direwolf = (40, 0, 140, 6, 25, 1.0)        -- Ultra-fast low HP (reduced range from 15 to 6)
-enemyStats Shieldbearer = (120, 8, 60, 8, 40, 2.0)     -- Projectile-resistant tank (reduced range from 25 to 8)
-enemyStats Pyromancer = (80, 2, 55, 200, 15, 2.0)      -- Ranged caster (burns towers) - keep range
-enemyStats Necromancer = (100, 3, 50, 180, 20, 2.5)    -- Summoner - keep range
-enemyStats TrapBreaker = (90, 4, 65, 8, 50, 1.5)       -- Anti-trap unit
-enemyStats WallClimber = (50, 0, 80, 8, 30, 1.0)       -- Fast climber, weak
-enemyStats BoulderRamCrew = (250, 10, 50, 12, 150, 3.0) -- Anti-castle siege ram (reduced range from 30 to 12)
+-- Normal Enemies (7 Total) - Made harder
+enemyStats GruntRaider = (90, 2, 75, 8, 55, 1.3)      -- Increased HP 60->90, added armor, more damage
+enemyStats BruteCrusher = (220, 8, 45, 10, 95, 2.2)    -- Increased HP 150->220, more armor, more damage
+enemyStats Direwolf = (60, 1, 150, 6, 35, 0.9)        -- Increased HP 40->60, faster, more damage
+enemyStats Shieldbearer = (180, 12, 65, 8, 55, 1.8)     -- Increased HP 120->180, more armor, more damage
+enemyStats Pyromancer = (120, 4, 60, 200, 25, 1.8)      -- Increased HP 80->120, more damage
+enemyStats Necromancer = (150, 5, 55, 180, 30, 2.2)    -- Increased HP 100->150, more damage
+enemyStats TrapBreaker = (130, 6, 70, 8, 65, 1.3)       -- Increased HP 90->130, more damage
+enemyStats WallClimber = (70, 1, 85, 8, 40, 0.9)       -- Increased HP 50->70, faster, more damage
+enemyStats BoulderRamCrew = (350, 15, 55, 12, 180, 2.8) -- Increased HP 250->350, more armor, more damage
 -- Bosses (Every 3 Levels) - Made much harder
 enemyStats IronbackMinotaur = (1200, 25, 60, 15, 150, 2.0)  -- Tank boss - doubled HP, more armor, faster attacks
 enemyStats FireDrake = (1500, 20, 70, 250, 200, 1.8)       -- Ranged fire AoE boss - doubled HP, more damage
@@ -207,13 +207,16 @@ abilityDurations TimeSlow = 8.0
 -- ============================================================================
 
 gateMaxHP :: Float
-gateMaxHP = 5000  -- Increased from 3000
+gateMaxHP = 3000
 
 gateUpgradeBaseCost :: Int
-gateUpgradeBaseCost = 200
+gateUpgradeBaseCost = 300  -- Base cost for upgrading gate
 
 gateHPPerLevel :: Float
-gateHPPerLevel = 1000
+gateHPPerLevel = 500  -- HP increase per level
+
+gateRepairCost :: Int
+gateRepairCost = 75  -- Cost to repair gate to full HP
 
 wallMaxHP :: Float
 wallMaxHP = 600
@@ -228,8 +231,6 @@ castleMaxHP = 2000
 startingGold :: Int
 startingGold = 500
 
-gateRepairCost :: Int
-gateRepairCost = 50
 
 baseWaveGold :: Int
 baseWaveGold = 200

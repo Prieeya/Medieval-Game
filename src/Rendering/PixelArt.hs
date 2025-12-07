@@ -428,54 +428,72 @@ renderPixelEnemy _ AnimDeath size =
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 
--- Boss enemies
+-- Boss enemies - Heavy and Dangerous Appearance
 renderPixelEnemy IronbackMinotaur AnimIdle size =
-  let pixelSize = size / 12  -- 128x128 boss: larger grid for detail
-      pixels = [ -- Head
-                 (0, -5, "dark brown")  -- Top of head
-               , (-1, -4, "dark brown"), (0, -4, "red"), (1, -4, "dark brown")
-               , (-1, -3, "dark brown"), (0, -3, "red"), (1, -3, "dark brown")
-               -- Horns
-               , (-2, -4, "dark brown"), (2, -4, "dark brown")
-               , (-2, -3, "dark brown"), (2, -3, "dark brown")
-               -- Shoulders/chest with iron plates
-               , (-4, -2, "iron gray"), (-3, -2, "dark brown"), (-2, -2, "iron gray"), (-1, -2, "dark brown"), (0, -2, "red"), (1, -2, "dark brown"), (2, -2, "iron gray"), (3, -2, "dark brown"), (4, -2, "iron gray")
-               , (-4, -1, "iron gray"), (-3, -1, "dark brown"), (-2, -1, "iron gray"), (-1, -1, "red"), (0, -1, "dark brown"), (1, -1, "red"), (2, -1, "iron gray"), (3, -1, "dark brown"), (4, -1, "iron gray")
-               -- Body
-               , (-4, 0, "iron gray"), (-3, 0, "dark brown"), (-2, 0, "iron gray"), (-1, 0, "red"), (0, 0, "dark brown"), (1, 0, "red"), (2, 0, "iron gray"), (3, 0, "dark brown"), (4, 0, "iron gray")
-               , (-3, 1, "dark brown"), (-2, 1, "iron gray"), (-1, 1, "red"), (0, 1, "dark brown"), (1, 1, "red"), (2, 1, "iron gray"), (3, 1, "dark brown")
-               -- Legs
-               , (-2, 2, "dark brown"), (-1, 2, "red"), (0, 2, "dark brown"), (1, 2, "red"), (2, 2, "dark brown")
-               , (-1, 3, "dark brown"), (0, 3, "red"), (1, 3, "dark brown")
-               , (-1, 4, "dark brown"), (0, 4, "red"), (1, 4, "dark brown")
-               -- Weapon
-               , (0, 5, "brown"), (0, 6, "dark brown")
+  let pixelSize = size / 14  -- Larger, more detailed
+      pixels = [ -- Massive Horns (more dangerous)
+                 (-3, -6, "dark brown"), (-2, -6, "dark brown"), (2, -6, "dark brown"), (3, -6, "dark brown")
+               , (-3, -5, "dark brown"), (-2, -5, "dark brown"), (2, -5, "dark brown"), (3, -5, "dark brown")
+               -- Large Head with glowing red eyes
+               , (-1, -5, "dark brown"), (0, -5, "red"), (1, -5, "dark brown")
+               , (-2, -4, "dark brown"), (-1, -4, "red"), (0, -4, "dark brown"), (1, -4, "red"), (2, -4, "dark brown")
+               , (-2, -3, "dark brown"), (-1, -3, "red"), (0, -3, "dark brown"), (1, -3, "red"), (2, -3, "dark brown")
+               -- Massive Shoulders with heavy iron armor
+               , (-5, -2, "iron gray"), (-4, -2, "dark gray"), (-3, -2, "iron gray"), (-2, -2, "dark gray"), (-1, -2, "iron gray"), (0, -2, "red"), (1, -2, "iron gray"), (2, -2, "dark gray"), (3, -2, "iron gray"), (4, -2, "dark gray"), (5, -2, "iron gray")
+               , (-5, -1, "iron gray"), (-4, -1, "dark gray"), (-3, -1, "iron gray"), (-2, -1, "dark gray"), (-1, -1, "red"), (0, -1, "dark brown"), (1, -1, "red"), (2, -1, "dark gray"), (3, -1, "iron gray"), (4, -1, "dark gray"), (5, -1, "iron gray")
+               -- Thick Body with armor plates
+               , (-5, 0, "iron gray"), (-4, 0, "dark gray"), (-3, 0, "iron gray"), (-2, 0, "dark gray"), (-1, 0, "red"), (0, 0, "dark brown"), (1, 0, "red"), (2, 0, "dark gray"), (3, 0, "iron gray"), (4, 0, "dark gray"), (5, 0, "iron gray")
+               , (-4, 1, "dark gray"), (-3, 1, "iron gray"), (-2, 1, "dark gray"), (-1, 1, "red"), (0, 1, "dark brown"), (1, 1, "red"), (2, 1, "dark gray"), (3, 1, "iron gray"), (4, 1, "dark gray")
+               -- Powerful Legs
+               , (-3, 2, "dark brown"), (-2, 2, "red"), (-1, 2, "dark brown"), (0, 2, "red"), (1, 2, "dark brown"), (2, 2, "red"), (3, 2, "dark brown")
+               , (-2, 3, "dark brown"), (-1, 3, "red"), (0, 3, "dark brown"), (1, 3, "red"), (2, 3, "dark brown")
+               , (-2, 4, "dark brown"), (-1, 4, "red"), (0, 4, "dark brown"), (1, 4, "red"), (2, 4, "dark brown")
+               -- Massive Weapon
+               , (-1, 5, "brown"), (0, 5, "dark brown"), (1, 5, "brown")
+               , (0, 6, "dark brown"), (0, 7, "dark brown")
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 
 renderPixelEnemy FireDrake AnimIdle size =
-  let pixelSize = size / 10
-      pixels = [ (0, -4, "orange")  -- Head
-               , (-1, -3, "orange"), (0, -3, "red"), (1, -3, "orange")
-               , (-2, -2, "orange"), (-1, -2, "red"), (0, -2, "yellow"), (1, -2, "red"), (2, -2, "orange")
-               , (-3, -1, "dark gray"), (-2, -1, "orange"), (-1, -1, "red"), (0, -1, "yellow"), (1, -1, "red"), (2, -1, "orange"), (3, -1, "dark gray")
-               , (-3, 0, "dark gray"), (-2, 0, "orange"), (-1, 0, "red"), (0, 0, "yellow"), (1, 0, "red"), (2, 0, "orange"), (3, 0, "dark gray")
-               , (-2, 1, "orange"), (-1, 1, "red"), (0, 1, "yellow"), (1, 1, "red"), (2, 1, "orange")
-               , (-1, 2, "orange"), (0, 2, "red"), (1, 2, "orange")
-               , (0, 3, "orange")
+  let pixelSize = size / 12  -- Larger, more menacing
+      pixels = [ -- Large Head with fire
+                 (0, -5, "orange")
+               , (-1, -4, "orange"), (0, -4, "red"), (1, -4, "orange")
+               , (-2, -3, "orange"), (-1, -3, "red"), (0, -3, "yellow"), (1, -3, "red"), (2, -3, "orange")
+               -- Massive Wings
+               , (-4, -2, "dark gray"), (-3, -2, "orange"), (-2, -2, "red"), (-1, -2, "yellow"), (0, -2, "red"), (1, -2, "yellow"), (2, -2, "red"), (3, -2, "orange"), (4, -2, "dark gray")
+               , (-4, -1, "dark gray"), (-3, -1, "orange"), (-2, -1, "red"), (-1, -1, "yellow"), (0, -1, "red"), (1, -1, "yellow"), (2, -1, "red"), (3, -1, "orange"), (4, -1, "dark gray")
+               -- Body with scales
+               , (-4, 0, "dark gray"), (-3, 0, "orange"), (-2, 0, "red"), (-1, 0, "yellow"), (0, 0, "red"), (1, 0, "yellow"), (2, 0, "red"), (3, 0, "orange"), (4, 0, "dark gray")
+               , (-3, 1, "orange"), (-2, 1, "red"), (-1, 1, "yellow"), (0, 1, "red"), (1, 1, "yellow"), (2, 1, "red"), (3, 1, "orange")
+               -- Tail
+               , (-2, 2, "orange"), (-1, 2, "red"), (0, 2, "yellow"), (1, 2, "red"), (2, 2, "orange")
+               , (-1, 3, "orange"), (0, 3, "red"), (1, 3, "orange")
+               , (0, 4, "orange")
+               -- Fire aura
+               , (-1, -5, "yellow"), (1, -5, "yellow")
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 
 renderPixelEnemy LichKingArcthros AnimIdle size =
-  let pixelSize = size / 10
-      pixels = [ (0, -4, "blue")  -- Crown/head
-               , (-1, -3, "blue"), (0, -3, "light blue"), (1, -3, "blue")
-               , (-2, -2, "blue"), (-1, -2, "light blue"), (0, -2, "white"), (1, -2, "light blue"), (2, -2, "blue")
-               , (-2, -1, "black"), (-1, -1, "blue"), (0, -1, "light blue"), (1, -1, "blue"), (2, -1, "black")
-               , (-2, 0, "black"), (-1, 0, "blue"), (0, 0, "white"), (1, 0, "blue"), (2, 0, "black")
-               , (-1, 1, "black"), (0, 1, "blue"), (1, 1, "black")
-               , (-1, 2, "black"), (0, 2, "blue"), (1, 2, "black")
-               , (0, 3, "blue")
+  let pixelSize = size / 12  -- Larger, more imposing
+      pixels = [ -- Massive Crown with spikes
+                 (-2, -6, "blue"), (-1, -6, "light blue"), (0, -6, "white"), (1, -6, "light blue"), (2, -6, "blue")
+               , (-2, -5, "blue"), (-1, -5, "light blue"), (0, -5, "white"), (1, -5, "light blue"), (2, -5, "blue")
+               -- Glowing eyes
+               , (-1, -4, "blue"), (0, -4, "white"), (1, -4, "blue")
+               , (-2, -3, "black"), (-1, -3, "blue"), (0, -3, "white"), (1, -3, "blue"), (2, -3, "black")
+               -- Robes with mystical aura
+               , (-3, -2, "black"), (-2, -2, "blue"), (-1, -2, "light blue"), (0, -2, "white"), (1, -2, "light blue"), (2, -2, "blue"), (3, -2, "black")
+               , (-3, -1, "black"), (-2, -1, "blue"), (-1, -1, "light blue"), (0, -1, "white"), (1, -1, "light blue"), (2, -1, "blue"), (3, -1, "black")
+               , (-3, 0, "black"), (-2, 0, "blue"), (-1, 0, "light blue"), (0, 0, "white"), (1, 0, "light blue"), (2, 0, "blue"), (3, 0, "black")
+               -- Flowing robes
+               , (-2, 1, "black"), (-1, 1, "blue"), (0, 1, "light blue"), (1, 1, "blue"), (2, 1, "black")
+               , (-2, 2, "black"), (-1, 2, "blue"), (0, 2, "light blue"), (1, 2, "blue"), (2, 2, "black")
+               , (-1, 3, "black"), (0, 3, "blue"), (1, 3, "black")
+               , (0, 4, "blue")
+               -- Mystical energy
+               , (-3, -3, "light blue"), (3, -3, "light blue")
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 

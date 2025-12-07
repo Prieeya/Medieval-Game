@@ -189,9 +189,8 @@ transitionToBossPrep world =
         { wsPhase = BossIncoming bossPhaseTime
         , wsWaveInLevel = wavesPerLevel
         }
-      -- Repair gate before boss wave
-      fort' = (fort world) { fortGate = repairGate (fortGate $ fort world) }
-  in world { waveState = ws', fort = fort' }
+      -- Do NOT auto-repair gate - player must pay to repair
+  in world { waveState = ws' }
 
 onLevelCleared :: World -> World
 onLevelCleared world =
@@ -203,9 +202,8 @@ onLevelCleared world =
         , wsLevelCleared = True
         , wsWaveCleared = True
         }
-      -- Repair gate when level is cleared
-      fort' = (fort world) { fortGate = repairGate (fortGate $ fort world) }
-  in world { waveState = ws', fort = fort' }
+      -- Do NOT auto-repair gate - player must pay to repair
+  in world { waveState = ws', fort = fort world }
 
 -- ============================================================================
 -- Enemy Spawning

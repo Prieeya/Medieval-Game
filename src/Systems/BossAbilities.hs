@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- Boss Abilities System
 module Systems.BossAbilities where
 
@@ -11,17 +12,17 @@ import qualified Data.Set as S
 -- Boss Ability Cooldowns
 -- ============================================================================
 
-bossAbilityCooldown :: UnitType -> Float
-bossAbilityCooldown IronbackMinotaur = 8.0  -- Charge every 8 seconds
-bossAbilityCooldown FireDrake = 6.0         -- Fire breath every 6 seconds
-bossAbilityCooldown LichKingArcthros = 10.0 -- Summon every 10 seconds
-bossAbilityCooldown _ = 999.0  -- Non-bosses have very long cooldown
+getBossAbilityCooldown :: UnitType -> Float
+getBossAbilityCooldown IronbackMinotaur = 8.0  -- Charge every 8 seconds
+getBossAbilityCooldown FireDrake = 6.0         -- Fire breath every 6 seconds
+getBossAbilityCooldown LichKingArcthros = 10.0 -- Summon every 10 seconds
+getBossAbilityCooldown _ = 999.0  -- Non-bosses have very long cooldown
 
-bossSpawnCooldown :: UnitType -> Float
-bossSpawnCooldown IronbackMinotaur = 15.0   -- Spawn grunts every 15 seconds
-bossSpawnCooldown FireDrake = 12.0          -- Spawn pyromancers every 12 seconds
-bossSpawnCooldown LichKingArcthros = 8.0    -- Spawn skeletons every 8 seconds
-bossSpawnCooldown _ = 999.0
+getBossSpawnCooldown :: UnitType -> Float
+getBossSpawnCooldown IronbackMinotaur = 15.0   -- Spawn grunts every 15 seconds
+getBossSpawnCooldown FireDrake = 12.0          -- Spawn pyromancers every 12 seconds
+getBossSpawnCooldown LichKingArcthros = 8.0    -- Spawn skeletons every 8 seconds
+getBossSpawnCooldown _ = 999.0
 
 -- ============================================================================
 -- Update Boss Abilities
@@ -33,8 +34,8 @@ updateBossAbilities dt world enemy
   | enemyHP enemy <= 0 = (enemy, world)
   | otherwise = 
       let currentTime = timeElapsed world
-          abilityCD = bossAbilityCooldown (enemyType enemy)
-          spawnCD = bossSpawnCooldown (enemyType enemy)
+          abilityCD = getBossAbilityCooldown (enemyType enemy)
+          spawnCD = getBossSpawnCooldown (enemyType enemy)
           
           -- Update timers
           timeSinceLastAbility = currentTime - bossLastAbilityTime enemy
@@ -79,7 +80,7 @@ useChargeAttack enemy world =
       enemy' = enemy 
         { enemyVel = newVel
         , bossLastAbilityTime = timeElapsed world
-        , bossAbilityCooldown = bossAbilityCooldown (enemyType enemy)
+        , bossAbilityCooldown = getBossAbilityCooldown (enemyType enemy)
         }
   in (enemy', world)
 
@@ -117,7 +118,7 @@ useFireBreath enemy world =
       allTowers = M.union towers' allTowersMap
       enemy' = enemy
         { bossLastAbilityTime = timeElapsed world
-        , bossAbilityCooldown = bossAbilityCooldown (enemyType enemy)
+        , bossAbilityCooldown = getBossAbilityCooldown (enemyType enemy)
         }
   in (enemy', world { towers = allTowers })
 
@@ -125,25 +126,31 @@ useFireBreath enemy world =
 useDeathAura :: Enemy -> World -> (Enemy, World)
 useDeathAura enemy world =
   let (x, y) = enemyPos enemy
-      -- Damage all towers within 150 range
-      affectedTowers = M.filter (\tower ->
+      allTowersMap = towers world
+      
+      -- Helper function to check if tower is in range
+      checkTowerRange tower =
         let (tx, ty) = towerPos tower
             (tdx, tdy) = (tx - x, ty - y)
             tdist = sqrt (tdx*tdx + tdy*tdy)
         in tdist < 150
-      ) (towers world)
       
-      -- Apply death damage (magic damage, ignores some armor)
-      towers' = M.map (\tower -> 
-        let damage = 30.0  -- Death aura damage
+      -- Helper function to apply death damage
+      applyDeathDamage tower =
+        let damage = 30.0
             newHP = max 0 (towerHP tower - damage)
         in tower { towerHP = newHP }
-      ) affectedTowers
       
-      allTowers = M.union towers' (towers world)
+      -- Damage all towers within 150 range
+      affectedTowers = M.filter checkTowerRange allTowersMap
+      
+      -- Apply death damage (magic damage, ignores some armor)
+      towers' = M.map applyDeathDamage affectedTowers
+      
+      allTowers = M.union towers' allTowersMap
       enemy' = enemy
         { bossLastAbilityTime = timeElapsed world
-        , bossAbilityCooldown = bossAbilityCooldown (enemyType enemy)
+        , bossAbilityCooldown = getBossAbilityCooldown (enemyType enemy)
         }
   in (enemy', world { towers = allTowers })
 
@@ -162,45 +169,66 @@ spawnGrunts :: Enemy -> World -> (Enemy, World)
 spawnGrunts enemy world =
   let (x, y) = enemyPos enemy
       spawnCount = 2  -- Spawn 2 grunts
-      newEnemies = foldl (\acc i ->
+      baseId = nextEntityId world
+      existingEnemies = enemies world
+      
+      spawnEnemy :: M.Map EntityId Enemy -> Int -> M.Map EntityId Enemy
+      spawnEnemy acc i =
         let angle = fromIntegral i * 2 * pi / fromIntegral spawnCount
             offsetX = cos angle * 40
             offsetY = sin angle * 40
             spawnPos = (x + offsetX, y + offsetY)
-            newEnemy = createEnemy (nextEntityId world + i) GruntRaider spawnPos (enemySpawnSide enemy) (timeElapsed world)
+            newEnemy = createEnemy (baseId + i) GruntRaider spawnPos (enemySpawnSide enemy) (timeElapsed world)
         in M.insert (enemyId newEnemy) newEnemy acc
-      ) (enemies world) [0..spawnCount-1]
+      
+      newEnemies :: M.Map EntityId Enemy
+      newEnemies = foldl spawnEnemy existingEnemies [0..spawnCount-1]
+      newNextId = baseId + spawnCount
       enemy' = enemy { bossSpawnTimer = timeElapsed world }
-  in (enemy', world { enemies = newEnemies, nextEntityId = nextEntityId world + spawnCount })
+  in (enemy', world { enemies = newEnemies, nextEntityId = newNextId })
 
 spawnPyromancers :: Enemy -> World -> (Enemy, World)
 spawnPyromancers enemy world =
   let (x, y) = enemyPos enemy
       spawnCount = 2  -- Spawn 2 pyromancers
-      newEnemies = foldl (\acc i ->
+      baseId = nextEntityId world
+      existingEnemies = enemies world
+      
+      spawnEnemy :: M.Map EntityId Enemy -> Int -> M.Map EntityId Enemy
+      spawnEnemy acc i =
         let angle = fromIntegral i * 2 * pi / fromIntegral spawnCount
             offsetX = cos angle * 50
             offsetY = sin angle * 50
             spawnPos = (x + offsetX, y + offsetY)
-            newEnemy = createEnemy (nextEntityId world + i) Pyromancer spawnPos (enemySpawnSide enemy) (timeElapsed world)
+            newEnemy = createEnemy (baseId + i) Pyromancer spawnPos (enemySpawnSide enemy) (timeElapsed world)
         in M.insert (enemyId newEnemy) newEnemy acc
-      ) (enemies world) [0..spawnCount-1]
+      
+      newEnemies :: M.Map EntityId Enemy
+      newEnemies = foldl spawnEnemy existingEnemies [0..spawnCount-1]
+      newNextId = baseId + spawnCount
       enemy' = enemy { bossSpawnTimer = timeElapsed world }
-  in (enemy', world { enemies = newEnemies, nextEntityId = nextEntityId world + spawnCount })
+  in (enemy', world { enemies = newEnemies, nextEntityId = newNextId })
 
 spawnSkeletons :: Enemy -> World -> (Enemy, World)
 spawnSkeletons enemy world =
   let (x, y) = enemyPos enemy
       spawnCount = 3  -- Spawn 3 skeletons (skeleton minions)
-      newEnemies = foldl (\acc i ->
+      baseId = nextEntityId world
+      existingEnemies = enemies world
+      
+      spawnEnemy :: M.Map EntityId Enemy -> Int -> M.Map EntityId Enemy
+      spawnEnemy acc i =
         let angle = fromIntegral i * 2 * pi / fromIntegral spawnCount
             offsetX = cos angle * 45
             offsetY = sin angle * 45
             spawnPos = (x + offsetX, y + offsetY)
             -- Use GruntRaider as skeleton proxy (or create SkeletonMinion type)
-            newEnemy = createEnemy (nextEntityId world + i) GruntRaider spawnPos (enemySpawnSide enemy) (timeElapsed world)
+            newEnemy = createEnemy (baseId + i) GruntRaider spawnPos (enemySpawnSide enemy) (timeElapsed world)
         in M.insert (enemyId newEnemy) newEnemy acc
-      ) (enemies world) [0..spawnCount-1]
+      
+      newEnemies :: M.Map EntityId Enemy
+      newEnemies = foldl spawnEnemy existingEnemies [0..spawnCount-1]
+      newNextId = baseId + spawnCount
       enemy' = enemy { bossSpawnTimer = timeElapsed world }
-  in (enemy', world { enemies = newEnemies, nextEntityId = nextEntityId world + spawnCount })
+  in (enemy', world { enemies = newEnemies, nextEntityId = newNextId })
 

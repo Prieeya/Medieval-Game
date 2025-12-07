@@ -507,4 +507,5 @@ data World = World
   , soundEvents :: [SoundEvent]  -- Queue of sound events to play
   , shouldExit :: Bool
   , knownTraps :: S.Set Vec2 -- Locations of traps discovered by enemy deaths
+  , gameMessage :: Maybe (String, Float)  -- Message text and time remaining
   } deriving (Show, Generic)
