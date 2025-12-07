@@ -259,6 +259,7 @@ updateGameMessage dt world =
 checkVictoryDefeat :: World -> World
 checkVictoryDefeat world
   | castleHP (castle world) <= 0 = world { isGameOver = True, isVictory = False }
-  | wsLevel (waveState world) > 5 && wsLevelCleared (waveState world) =
+  -- Victory after completing level 3 (maxLevel)
+  | wsLevel (waveState world) > Constants.maxLevel && wsLevelCleared (waveState world) =
       world { isGameOver = True, isVictory = True }
   | otherwise = world

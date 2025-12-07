@@ -198,9 +198,14 @@ initialInsideFortPaths =
 -- Enemy Configuration Helpers
 -- ============================================================================
 
+-- Create enemy with level-scaled stats
 createEnemy :: EntityId -> UnitType -> Vec2 -> SpawnSide -> Float -> Enemy
-createEnemy eid ut pos side time =
-  let (hp, armor, spd, range, dmg, cd) = enemyStats ut
+createEnemy = createEnemyWithLevel 1  -- Default to level 1
+
+-- Create enemy with specific level scaling
+createEnemyWithLevel :: Int -> EntityId -> UnitType -> Vec2 -> SpawnSide -> Float -> Enemy
+createEnemyWithLevel level eid ut pos side time =
+  let (hp, armor, spd, range, dmg, cd) = Constants.enemyStatsForLevel level ut
       role = unitTypeToRole ut
       -- Wall climbers: WallClimber, Berserker, and Assassin can all climb walls
       canClimb = ut `elem` [WallClimber, Berserker, Assassin]

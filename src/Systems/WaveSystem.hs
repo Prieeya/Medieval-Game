@@ -242,17 +242,16 @@ spawnNextEnemy world =
                      CenterSide -> centerSpawnX
                      RightSide -> rightSpawnX
           
-          enemyBase = createEnemy (nextEntityId world) enemyType (spawnX, spawnY) spawnSide (timeElapsed world)
-          -- Adaptive difficulty: scale enemy stats slightly based on level and player's towers
-          -- Reduced scaling for better balance
-          towerCount = M.size (towers world)
           level = wsLevel (waveState world)
-          scale = 1.0 + 0.03 * fromIntegral level + 0.01 * fromIntegral towerCount
+          -- Use level-scaled enemy creation
+          enemyBase = Config.createEnemyWithLevel level (nextEntityId world) enemyType (spawnX, spawnY) spawnSide (timeElapsed world)
+          -- Additional wave-based scaling within the level
+          waveInLevel = wsWaveInLevel (waveState world)
+          waveScale = 1.0 + 0.05 * fromIntegral waveInLevel
           enemy = enemyBase
-            { enemyHP = enemyHP enemyBase * scale
-            , enemyMaxHP = enemyMaxHP enemyBase * scale
-            , enemyDamage = enemyDamage enemyBase * scale
-            , enemySpeed = enemySpeed enemyBase * scale
+            { enemyHP = enemyHP enemyBase * waveScale
+            , enemyMaxHP = enemyMaxHP enemyBase * waveScale
+            , enemyDamage = enemyDamage enemyBase * waveScale
             }
 
           enemies' = M.insert (nextEntityId world) enemy (enemies world)

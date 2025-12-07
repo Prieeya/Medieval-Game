@@ -115,31 +115,29 @@ checkAndRestartMusic musicState
   | otherwise = do
       isPlaying <- Mix.playingMusic
       isPaused <- Mix.pausedMusic
-      if isPlaying && not isPaused
-        then return musicState  -- Music is playing normally, all good
-        else case currentTrack musicState of
-          Nothing -> return musicState
-          Just track -> do
-            -- Music stopped or paused - restart it if not paused
-            if isPaused
-              then return musicState  -- Music is paused, don't restart
-              else do
-                -- Music actually stopped, restart it immediately
-                tryRestart track
+      case currentTrack musicState of
+        Nothing -> return musicState
+        Just track -> do
+          -- If music is not playing and not paused, restart it immediately
+          if not isPlaying && not isPaused
+            then do
+              -- Music stopped unexpectedly, restart it
+              tryRestart track
+            else return musicState  -- Music is playing or paused, don't interfere
   where
     tryRestart path = do
       catch (do
         -- Stop any existing music first
         Mix.haltMusic
-        -- Small delay to ensure cleanup
+        -- Load and play with infinite looping
         music <- Mix.load path
-        -- Play with infinite looping
         Mix.playMusic Mix.Forever music
+        hPutStrLn stderr "Music restarted (was stopped)"
         return musicState)
         handleError
     handleError :: SomeException -> IO MusicState
-    handleError _ = do
-      -- Silently handle errors to avoid spam
+    handleError e = do
+      hPutStrLn stderr $ "Failed to restart music: " ++ show e
       return musicState
 #else
   | otherwise = return musicState
@@ -153,9 +151,9 @@ updateMusicState musicState dt
   | not (musicInitialized musicState) = return musicState
   | otherwise = do
       let newCheckTimer = musicCheckTimer musicState + dt
-      -- Check every 2 seconds if music is still playing
-      -- More frequent checks to catch music stopping quickly
-      if newCheckTimer >= 2.0
+      -- Check every 0.5 seconds if music is still playing
+      -- Very frequent checks to ensure continuous playback
+      if newCheckTimer >= 0.5
         then do
           newState <- checkAndRestartMusic musicState
           return newState { musicCheckTimer = 0 }

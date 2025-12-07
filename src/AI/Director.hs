@@ -69,45 +69,69 @@ selectComposition threat level wave isBossWave gen
 
 selectNormalComposition :: ThreatData -> Int -> Int -> StdGen -> (M.Map UnitType Int, StdGen)
 selectNormalComposition threat level wave gen =
-  let baseCount = baseEnemyCount + level * 5 + wave * 3
+  let -- Base count scales with level significantly
+      levelMultiplier = Constants.enemyCountPerLevel level
+      baseCount = round (fromIntegral (baseEnemyCount + wave * 2) * levelMultiplier)
       towerComp = tdTowerComposition threat
       
       -- Counter player's strategy
       (grunts, casters, heavies, fast, siege) = calculateCounters towerComp baseCount
       
-      -- Calculate climbers/short-range based on level
-      climbers = if level >= 2 then fast `div` 2 else 0
-      berserkers = if level >= 3 then max 1 (heavies `div` 3) else 0
-      assassins = if level >= 4 then max 1 (fast `div` 3) else 0
+      -- Level 1: Basic enemies only
+      -- Level 2: Add climbers, trap breakers, berserkers
+      -- Level 3: Full roster with assassins and more siege
       
-      comp = M.fromList
-        [ (GruntRaider, grunts)
-        , (Shieldbearer, grunts `div` 3)
-        , (Direwolf, fast)
-        , (TrapBreaker, if level >= 2 then fast `div` 2 else 0)
-        , (WallClimber, climbers)
-        , (Berserker, berserkers)   -- Short-range melee, can climb
-        , (Assassin, assassins)     -- Fast short-range, targets towers
-        , (Pyromancer, casters)
-        , (BruteCrusher, heavies)
-        , (BoulderRamCrew, siege)
-        ]
+      comp = case level of
+        1 -> M.fromList
+          [ (GruntRaider, grunts)
+          , (Shieldbearer, max 1 (grunts `div` 4))
+          , (Direwolf, fast)
+          , (Pyromancer, max 1 (casters `div` 2))
+          , (BruteCrusher, max 1 (heavies `div` 2))
+          ]
+        2 -> M.fromList
+          [ (GruntRaider, grunts)
+          , (Shieldbearer, max 1 (grunts `div` 3))
+          , (Direwolf, fast)
+          , (TrapBreaker, max 1 (fast `div` 3))
+          , (WallClimber, max 2 (fast `div` 2))
+          , (Berserker, max 1 (heavies `div` 3))
+          , (Pyromancer, casters)
+          , (BruteCrusher, heavies)
+          , (BoulderRamCrew, max 1 (siege `div` 2))
+          ]
+        _ -> M.fromList  -- Level 3+
+          [ (GruntRaider, grunts)
+          , (Shieldbearer, max 2 (grunts `div` 3))
+          , (Direwolf, fast)
+          , (TrapBreaker, max 2 (fast `div` 2))
+          , (WallClimber, max 3 (fast `div` 2))
+          , (Berserker, max 2 (heavies `div` 2))
+          , (Assassin, max 2 (fast `div` 3))
+          , (Pyromancer, casters)
+          , (Necromancer, max 1 (casters `div` 3))
+          , (BruteCrusher, heavies)
+          , (BoulderRamCrew, siege)
+          ]
   in (comp, gen)
 
 selectBossComposition :: ThreatData -> Int -> StdGen -> (M.Map UnitType Int, StdGen)
 selectBossComposition threat level gen =
-  let baseCount = baseEnemyCount + level * 8
-      
-      -- Boss wave has stronger units based on level
+  let -- Boss wave at end of level 3 (victory level)
+      -- Spawn all 3 bosses with their minions for epic final battle
       comp = M.fromList
-        [ (IronbackMinotaur, if level == 3 then 1 else 0)
-        , (FireDrake, if level == 6 then 1 else 0)
-        , (LichKingArcthros, if level == 9 then 1 else 0)
-        , (BruteCrusher, level * 2)
-        , (Shieldbearer, level * 2)
-        , (Pyromancer, level)
-        , (Necromancer, if level >= 4 then level - 2 else 0)
-        , (BoulderRamCrew, if level >= 5 then 1 else 0)
+        [ (IronbackMinotaur, 1)     -- Tank boss
+        , (FireDrake, 1)            -- Fire boss
+        , (LichKingArcthros, 1)     -- Summoner boss
+        -- Boss minions
+        , (BruteCrusher, 4)         -- Heavy support
+        , (Shieldbearer, 4)         -- Armored support
+        , (Pyromancer, 3)           -- Fire casters
+        , (Necromancer, 2)          -- Summoners
+        , (Berserker, 3)            -- Melee damage
+        , (Assassin, 2)             -- Fast attackers
+        , (WallClimber, 3)          -- Climbers
+        , (BoulderRamCrew, 2)       -- Siege support
         ]
   in (comp, gen)
 
