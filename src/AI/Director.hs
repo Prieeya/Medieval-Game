@@ -39,19 +39,15 @@ selectSpawnSides threat gen =
   let weakSides = tdWeakSides threat
       gateDmg = tdGateDamageRatio threat
       
-      -- If gate is damaged, pressure it more
-      primarySides = if gateDmg > 0.5
-                     then [CenterSide, LeftSide]
-                     else weakSides
+      -- Always use all 3 sides to distribute enemies across all gates
+      -- Rotate which side gets priority based on threat analysis
+      allThreeSides = [LeftSide, CenterSide, RightSide]
       
-      -- Add a random third side sometimes
-      (shouldAddThird, gen1) = random gen :: (Bool, StdGen)
-      (thirdSide, gen2) = randomR (0, 2) gen1
-      
-      allSides = if shouldAddThird
-                 then primarySides ++ [toSpawnSide thirdSide]
-                 else primarySides
-  in (take 3 $ L.nub allSides, gen2)
+      -- If gate is damaged, prioritize that side but still use all 3
+      -- Shuffle the order to distribute enemies evenly
+      (shuffleIdx, gen1) = randomR (0, 2) gen
+      shuffledSides = drop shuffleIdx allThreeSides ++ take shuffleIdx allThreeSides
+  in (shuffledSides, gen1)
 
 toSpawnSide :: Int -> SpawnSide
 toSpawnSide 0 = LeftSide

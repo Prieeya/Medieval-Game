@@ -112,25 +112,25 @@ spawnYRange = (-350, 350)
 
 -- Base enemy stats (hp, armor, speed, attackRange, damage, attackCooldown)
 -- These are scaled by level using enemyStatsForLevel
--- HARDER ENEMIES - Increased base stats
+-- MUCH HARDER ENEMIES - Significantly increased HP and damage
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies - Base stats for level 1 (HARDER)
-enemyStats GruntRaider = (80, 2, 65, 8, 30, 1.3)       -- Basic enemy - tougher
-enemyStats BruteCrusher = (200, 10, 40, 10, 55, 2.2)   -- Tank - very tough
-enemyStats Direwolf = (55, 0, 120, 6, 22, 0.9)         -- Fast - more HP/damage
-enemyStats Shieldbearer = (160, 15, 55, 8, 35, 1.8)    -- Armored - more armor
-enemyStats Pyromancer = (90, 3, 50, 180, 28, 1.8)      -- Ranged - more damage
-enemyStats Necromancer = (110, 5, 45, 160, 22, 2.2)    -- Summoner - tougher
-enemyStats TrapBreaker = (100, 8, 60, 8, 40, 1.3)      -- Anti-trap - more damage
-enemyStats WallClimber = (70, 2, 80, 8, 28, 1.0)       -- Climber - faster
+-- Normal Enemies - Base stats for level 1 (MUCH HARDER)
+enemyStats GruntRaider = (120, 2, 65, 8, 45, 1.3)       -- Basic enemy - +50% HP, +50% damage
+enemyStats BruteCrusher = (300, 10, 40, 10, 85, 2.2)     -- Tank - +50% HP, +55% damage
+enemyStats Direwolf = (85, 0, 120, 6, 35, 0.9)          -- Fast - +55% HP, +59% damage
+enemyStats Shieldbearer = (240, 15, 55, 8, 55, 1.8)     -- Armored - +50% HP, +57% damage
+enemyStats Pyromancer = (140, 3, 50, 180, 45, 1.8)      -- Ranged - +56% HP, +61% damage
+enemyStats Necromancer = (170, 5, 45, 160, 35, 2.2)     -- Summoner - +55% HP, +59% damage
+enemyStats TrapBreaker = (150, 8, 60, 8, 60, 1.3)       -- Anti-trap - +50% HP, +50% damage
+enemyStats WallClimber = (110, 2, 80, 8, 42, 1.0)       -- Climber - +57% HP, +50% damage
 -- Short-range melee specialists (unlocked at higher levels)
-enemyStats Berserker = (130, 5, 85, 12, 70, 0.8)       -- High damage, short range
-enemyStats Assassin = (75, 0, 115, 10, 50, 0.6)        -- Fast short-range
-enemyStats BoulderRamCrew = (350, 18, 45, 12, 100, 2.5) -- Siege unit - very tough
+enemyStats Berserker = (200, 5, 85, 12, 105, 0.8)       -- High damage - +54% HP, +50% damage
+enemyStats Assassin = (115, 0, 115, 10, 75, 0.6)         -- Fast - +53% HP, +50% damage
+enemyStats BoulderRamCrew = (525, 18, 45, 12, 150, 2.5) -- Siege - +50% HP, +50% damage
 -- Bosses - Appear at end of level 3 (MUCH HARDER)
-enemyStats IronbackMinotaur = (1500, 30, 50, 15, 150, 1.8)  -- Tank boss
-enemyStats FireDrake = (1800, 22, 60, 200, 180, 1.5)        -- Fire breath boss
-enemyStats LichKingArcthros = (2200, 35, 45, 180, 140, 2.0) -- Summoner boss
+enemyStats IronbackMinotaur = (2250, 30, 50, 15, 225, 1.8)  -- Tank boss - +50% HP, +50% damage
+enemyStats FireDrake = (2700, 22, 60, 200, 270, 1.5)        -- Fire breath boss - +50% HP, +50% damage
+enemyStats LichKingArcthros = (3300, 35, 45, 180, 210, 2.0) -- Summoner boss - +50% HP, +50% damage
 
 -- Scale enemy stats based on level (enemies get stronger each level)
 -- MORE AGGRESSIVE SCALING
@@ -172,15 +172,17 @@ enemyGoldValue LichKingArcthros = 200  -- Boss Level 9
 -- Tower Stats
 -- ============================================================================
 
+-- Tower costs based on damage output (costlier for higher damage)
+-- Formula: base cost + (damage * cost per damage point)
 towerCost :: TowerType -> Int
-towerCost ArrowTower = 50      -- Basic Defense Tower
-towerCost CatapultTower = 120   -- Siege Tower
-towerCost CrossbowTower = 150   -- Sniper Tower
-towerCost FireTower = 130      -- Burning Tower
-towerCost TeslaTower = 200      -- Lightning Tower
-towerCost BallistaTower = 220   -- Armor-Piercing Tower
-towerCost PoisonTower = 90      -- Debuff Tower
-towerCost BombardTower = 250    -- Cannon Tower
+towerCost ArrowTower = 50 + round (40 * 1.2)      -- 40 damage -> 98g (was 50g)
+towerCost CatapultTower = 80 + round (90 * 1.0)   -- 90 damage -> 170g (was 120g)
+towerCost CrossbowTower = 100 + round (120 * 1.0) -- 120 damage -> 220g (was 150g)
+towerCost FireTower = 70 + round (30 * 1.5)      -- 30 damage + DoT -> 115g (was 130g)
+towerCost TeslaTower = 120 + round (55 * 1.2)    -- 55 damage + chain -> 186g (was 200g)
+towerCost BallistaTower = 150 + round (140 * 1.0) -- 140 damage -> 290g (was 220g)
+towerCost PoisonTower = 60 + round (25 * 1.2)     -- 25 damage + debuff -> 90g (was 90g)
+towerCost BombardTower = 180 + round (160 * 1.0)  -- 160 damage + AoE -> 340g (was 250g)
 
 -- Tower upgrade cost: increases with level
 towerUpgradeCost :: TowerType -> Int -> Int
