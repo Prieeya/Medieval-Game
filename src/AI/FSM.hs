@@ -46,7 +46,27 @@ updateMovingToFort :: Float -> World -> Enemy -> Enemy
 updateMovingToFort dt world enemy =
   let gateLocation = gatePos $ fortGate $ fort world
       distToGate = Path.distance (enemyPos enemy) gateLocation
-  in if distToGate < 200  -- Large threshold to ensure enemies attack gate
+      prefersWalls = PreferWalls `elem` enemyTargetPrefs enemy
+      canClimb = enemyCanClimb enemy
+  in 
+     -- Wall climbing enemies prioritize climbing walls over attacking gate
+     if canClimb && prefersWalls && distToGate < 350
+     then case Path.findNearestClimbPoint enemy world of
+            Just (wid, climbPos) ->
+              let distToClimb = Path.distance (enemyPos enemy) climbPos
+              in if distToClimb < 30
+                 then enemy { enemyAIState = ClimbingWall wid, enemyLastAttackTime = timeElapsed world }
+                 else enemy  -- Keep moving toward climb point
+            Nothing ->
+              -- No climb points, attack wall directly if close
+              case findNearestWall enemy world of
+                Just (wid, wallDist) | wallDist < 50 -> enemy { enemyAIState = AttackingWall wid }
+                _ -> if distToGate < 200
+                     then if gateDestroyed (fortGate $ fort world)
+                          then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
+                          else enemy { enemyAIState = AttackingGate }
+                     else enemy
+     else if distToGate < 200  -- Large threshold to ensure enemies attack gate
      then
        if gateDestroyed (fortGate $ fort world)
        then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
@@ -57,17 +77,27 @@ updateMovingToFort dt world enemy =
          Just waypoint ->
            if Path.hasReachedWaypoint enemy waypoint
            then Path.advancePathIndex enemy
-           else
-             if enemyCanClimb enemy && distToGate < 250
-             then case Path.findNearestClimbPoint enemy world of
-                    Just (wid, _) -> enemy { enemyAIState = ClimbingWall wid }
-                    Nothing -> enemy
-             else enemy
+           else enemy
          Nothing ->
            -- Ran out of waypoints but still not at gate - try to attack anyway
            if gateDestroyed (fortGate $ fort world)
            then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
            else enemy { enemyAIState = AttackingGate }
+
+-- Find nearest wall segment for attacking
+findNearestWall :: Enemy -> World -> Maybe (Int, Float)
+findNearestWall enemy world =
+  let walls = fortWalls (fort world)
+      wallsWithDist = map (\w -> 
+        let midX = (fst (wallStart w) + fst (wallEnd w)) / 2
+            midY = (snd (wallStart w) + snd (wallEnd w)) / 2
+            dist = Path.distance (enemyPos enemy) (midX, midY)
+        in (Types.wallId w, dist)) walls
+      validWalls = filter (\(_, d) -> d < 500) wallsWithDist
+      sorted = L.sortBy (\(_, d1) (_, d2) -> compare d1 d2) validWalls
+  in case sorted of
+       [] -> Nothing
+       ((wid, d):_) -> Just (wid, d)
 
 -- ============================================================================
 -- Attacking Gate

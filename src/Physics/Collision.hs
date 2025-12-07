@@ -82,6 +82,19 @@ checkEnemyFortCollision world enemy =
         in world { fort = fort', enemies = enemies', visualEffects = effects', soundEvents = events' }
       else world
     
+    AttackingWall wid ->
+      if timeElapsed world - enemyLastAttackTime enemy >= enemyAttackCooldown enemy
+      then
+        let walls = fortWalls (fort world)
+            (walls', effects, events) = attackWall wid (enemyDamage enemy) (enemyPos enemy) walls world
+            fort' = (fort world) { fortWalls = walls' }
+            enemy' = enemy { enemyLastAttackTime = timeElapsed world }
+            enemies' = M.insert (enemyId enemy) enemy' (enemies world)
+            effects' = effects ++ visualEffects world
+            events' = events ++ soundEvents world
+        in world { fort = fort', enemies = enemies', visualEffects = effects', soundEvents = events' }
+      else world
+    
     AttackingTower tid ->
       if timeElapsed world - enemyLastAttackTime enemy >= enemyAttackCooldown enemy
       then
@@ -174,3 +187,24 @@ triggerTrapOnEnemy (world, affected) enemy trap =
 
 distance :: Vec2 -> Vec2 -> Float
 distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)
+
+-- Attack a wall segment and return updated walls, effects, and sounds
+attackWall :: Int -> Float -> Vec2 -> [WallSegment] -> World -> ([WallSegment], [VisualEffect], [SoundEvent])
+attackWall wid damage enemyPos walls world =
+  let updateWall w = 
+        if Types.wallId w == wid
+        then applyDamageToWall damage w
+        else w
+      walls' = map updateWall walls
+      targetWall = filter (\w -> Types.wallId w == wid) walls
+      (effects, events) = case targetWall of
+        [] -> ([], [])
+        (w:_) -> 
+          let midX = (fst (wallStart w) + fst (wallEnd w)) / 2
+              midY = (snd (wallStart w) + snd (wallEnd w)) / 2
+              wallPos = (midX, midY)
+              effect = ImpactFlash wallPos 0.15 0.15
+              attackParticle = EnemyAttackParticle enemyPos wallPos 0.2
+              soundWall = SoundGateHit  -- Reuse gate hit sound for walls
+          in ([effect, attackParticle], [soundWall])
+  in (walls', effects, events)

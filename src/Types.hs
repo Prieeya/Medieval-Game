@@ -47,6 +47,8 @@ data UnitType
   | Necromancer      -- Summoner
   | TrapBreaker      -- New enemy that targets traps
   | WallClimber      -- Climbs walls
+  | Berserker        -- Short-range high damage melee
+  | Assassin         -- Fast short-range, targets towers inside fort
   | BoulderRamCrew   -- Siege Unit
   | IronbackMinotaur -- Boss Level 3
   | FireDrake        -- Boss Level 6

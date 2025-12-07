@@ -75,12 +75,19 @@ selectNormalComposition threat level wave gen =
       -- Counter player's strategy
       (grunts, casters, heavies, fast, siege) = calculateCounters towerComp baseCount
       
+      -- Calculate climbers/short-range based on level
+      climbers = if level >= 2 then fast `div` 2 else 0
+      berserkers = if level >= 3 then max 1 (heavies `div` 3) else 0
+      assassins = if level >= 4 then max 1 (fast `div` 3) else 0
+      
       comp = M.fromList
         [ (GruntRaider, grunts)
         , (Shieldbearer, grunts `div` 3)
         , (Direwolf, fast)
         , (TrapBreaker, if level >= 2 then fast `div` 2 else 0)
-        , (WallClimber, if level >= 3 then fast `div` 2 else 0)
+        , (WallClimber, climbers)
+        , (Berserker, berserkers)   -- Short-range melee, can climb
+        , (Assassin, assassins)     -- Fast short-range, targets towers
         , (Pyromancer, casters)
         , (BruteCrusher, heavies)
         , (BoulderRamCrew, siege)
@@ -158,6 +165,7 @@ selectSpecialUnits :: ThreatData -> Int -> Bool -> [UnitType]
 selectSpecialUnits threat level isBossWave =
   let trapCount = sum $ M.elems (tdTrapUsage threat)
       gateDmg = tdGateDamageRatio threat
+      towerCount = sum $ M.elems (tdTowerComposition threat)
       
       specialUnits = []
       
@@ -166,9 +174,9 @@ selectSpecialUnits threat level isBossWave =
                       then TrapBreaker : Direwolf : specialUnits
                       else specialUnits
       
-      -- Add rams if gate is strong
+      -- Add rams if gate is strong, also add wall climbers
       specialUnits2 = if gateDmg < 0.3 && level >= 2
-                      then BoulderRamCrew : WallClimber : specialUnits1
+                      then BoulderRamCrew : WallClimber : Berserker : specialUnits1
                       else specialUnits1
       
       -- Add pyromancers if there are many towers
@@ -180,4 +188,9 @@ selectSpecialUnits threat level isBossWave =
       specialUnits4 = if level >= 4
                       then Necromancer : specialUnits3
                       else specialUnits3
-  in specialUnits4
+      
+      -- Add assassins if there are many towers inside fort
+      specialUnits5 = if towerCount > 4 && level >= 4
+                      then Assassin : specialUnits4
+                      else specialUnits4
+  in specialUnits5

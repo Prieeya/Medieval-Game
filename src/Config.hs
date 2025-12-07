@@ -185,7 +185,8 @@ createEnemy :: EntityId -> UnitType -> Vec2 -> SpawnSide -> Float -> Enemy
 createEnemy eid ut pos side time =
   let (hp, armor, spd, range, dmg, cd) = enemyStats ut
       role = unitTypeToRole ut
-      canClimb = ut == WallClimber
+      -- Wall climbers: WallClimber, Berserker, and Assassin can all climb walls
+      canClimb = ut `elem` [WallClimber, Berserker, Assassin]
       prefs = unitTypePreferences ut
       initialAnim = AnimationState { animType = AnimMove, animFrame = 0, animTime = 0 }
   in Enemy
@@ -228,6 +229,8 @@ unitTypeToRole Pyromancer = Ranged
 unitTypeToRole Necromancer = Ranged
 unitTypeToRole TrapBreaker = Fast
 unitTypeToRole WallClimber = Fast
+unitTypeToRole Berserker = Melee   -- Short-range high damage
+unitTypeToRole Assassin = Fast     -- Fast short-range
 unitTypeToRole BoulderRamCrew = Siege
 unitTypeToRole IronbackMinotaur = Boss
 unitTypeToRole FireDrake = Boss
@@ -236,7 +239,9 @@ unitTypeToRole LichKingArcthros = Boss
 unitTypePreferences :: UnitType -> [TargetPreference]
 unitTypePreferences BoulderRamCrew = [PreferGate, PreferWalls, PreferCastle]
 unitTypePreferences TrapBreaker = [PreferTraps, PreferGate, PreferCastle]
-unitTypePreferences WallClimber = [PreferWalls, PreferCastle]
+unitTypePreferences WallClimber = [PreferWalls, PreferTowers, PreferCastle]  -- Climb wall, then attack towers
+unitTypePreferences Berserker = [PreferWalls, PreferTowers, PreferCastle]    -- Climb wall, siege defenses
+unitTypePreferences Assassin = [PreferWalls, PreferTowers, PreferCastle]     -- Climb wall, target towers
 unitTypePreferences Pyromancer = [PreferTowers, PreferCastle]
 unitTypePreferences Necromancer = [PreferTowers, PreferCastle]
 unitTypePreferences FireDrake = [PreferTowers, PreferCastle]

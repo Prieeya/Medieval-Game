@@ -406,6 +406,49 @@ renderPixelEnemy WallClimber AnimIdle size =
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 
+-- Berserker: Short-range high damage melee with wild appearance
+renderPixelEnemy Berserker AnimIdle size =
+  let pixelSize = size / 10
+      -- "Wild berserker with dual axes"
+      pixels = [ -- Wild hair
+                 (-2, -5, "orange"), (-1, -5, "red"), (0, -5, "orange"), (1, -5, "red"), (2, -5, "orange")
+               , (-2, -4, "red"), (2, -4, "red")
+               -- Fierce face with war paint
+               , (-1, -4, "tan"), (0, -4, "tan"), (1, -4, "tan")
+               , (-1, -3, "red"), (0, -3, "tan"), (1, -3, "red")  -- War paint
+               -- Muscular bare chest
+               , (-2, -2, "tan"), (-1, -2, "tan"), (0, -2, "tan"), (1, -2, "tan"), (2, -2, "tan")
+               , (-2, -1, "tan"), (-1, -1, "tan"), (0, -1, "tan"), (1, -1, "tan"), (2, -1, "tan")
+               , (-1, 0, "tan"), (0, 0, "tan"), (1, 0, "tan")
+               -- Leather pants
+               , (-1, 1, "dark brown"), (0, 1, "brown"), (1, 1, "dark brown")
+               , (-1, 2, "dark brown"), (1, 2, "dark brown")
+               -- Dual axes
+               , (-3, -2, "silver"), (-3, -1, "silver"), (-4, -1, "brown")  -- Left axe
+               , (3, -2, "silver"), (3, -1, "silver"), (4, -1, "brown")    -- Right axe
+               ]
+  in drawPixelSprite pixelSize (pixelColor "black") pixels
+
+-- Assassin: Fast short-range enemy that targets towers
+renderPixelEnemy Assassin AnimIdle size =
+  let pixelSize = size / 8
+      -- "Stealthy assassin with daggers"
+      pixels = [ -- Hooded head
+                 (-1, -4, "dark purple"), (0, -4, "dark purple"), (1, -4, "dark purple")
+               , (-1, -3, "purple"), (0, -3, "dark gray"), (1, -3, "purple")  -- Face in shadow
+               -- Slim body with cloak
+               , (-1, -2, "dark purple"), (0, -2, "purple"), (1, -2, "dark purple")
+               , (-1, -1, "purple"), (0, -1, "dark purple"), (1, -1, "purple")
+               , (0, 0, "dark purple")
+               -- Legs
+               , (-1, 1, "dark gray"), (1, 1, "dark gray")
+               , (-1, 2, "black"), (1, 2, "black")
+               -- Dual daggers
+               , (-2, -1, "silver"), (-2, 0, "silver")  -- Left dagger
+               , (2, -1, "silver"), (2, 0, "silver")    -- Right dagger
+               ]
+  in drawPixelSprite pixelSize (pixelColor "black") pixels
+
 renderPixelEnemy BoulderRamCrew AnimIdle size =
   let pixelSize = size / 10  -- Larger for siege unit
       -- "troop pushing wooden battering ram" - JSON spec

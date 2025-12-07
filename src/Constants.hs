@@ -92,7 +92,7 @@ spawnYRange = (-350, 350)
 -- ============================================================================
 
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies (7 Total) - Made harder
+-- Normal Enemies - Made harder
 enemyStats GruntRaider = (90, 2, 75, 8, 55, 1.3)      -- Increased HP 60->90, added armor, more damage
 enemyStats BruteCrusher = (220, 8, 45, 10, 95, 2.2)    -- Increased HP 150->220, more armor, more damage
 enemyStats Direwolf = (60, 1, 150, 6, 35, 0.9)        -- Increased HP 40->60, faster, more damage
@@ -101,6 +101,9 @@ enemyStats Pyromancer = (120, 4, 60, 200, 25, 1.8)      -- Increased HP 80->120,
 enemyStats Necromancer = (150, 5, 55, 180, 30, 2.2)    -- Increased HP 100->150, more damage
 enemyStats TrapBreaker = (130, 6, 70, 8, 65, 1.3)       -- Increased HP 90->130, more damage
 enemyStats WallClimber = (70, 1, 85, 8, 40, 0.9)       -- Increased HP 50->70, faster, more damage
+-- Short-range melee specialists
+enemyStats Berserker = (160, 3, 90, 12, 120, 0.8)      -- High damage, short range, fast attack, can climb walls
+enemyStats Assassin = (80, 0, 130, 10, 80, 0.6)        -- Low HP, very fast, short range, targets towers inside fort
 enemyStats BoulderRamCrew = (350, 15, 55, 12, 180, 2.8) -- Increased HP 250->350, more armor, more damage
 -- Bosses (Every 3 Levels) - Made much harder
 enemyStats IronbackMinotaur = (1200, 25, 60, 15, 150, 2.0)  -- Tank boss - doubled HP, more armor, faster attacks
@@ -119,6 +122,8 @@ enemyGoldValue Pyromancer = 25       -- Ranged Caster
 enemyGoldValue Necromancer = 30      -- Summoner
 enemyGoldValue TrapBreaker = 35        -- Anti-trap
 enemyGoldValue WallClimber = 20        -- Climber
+enemyGoldValue Berserker = 28          -- Short-range melee
+enemyGoldValue Assassin = 22           -- Fast short-range
 enemyGoldValue BoulderRamCrew = 40   -- Siege Unit
 -- Boss Units (Every 3 Levels)
 enemyGoldValue IronbackMinotaur = 100   -- Boss Level 3

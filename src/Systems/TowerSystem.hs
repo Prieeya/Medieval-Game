@@ -34,35 +34,85 @@ findValidTargets world tower =
 prioritizeTargets :: Tower -> [Enemy] -> World -> [Enemy]
 prioritizeTargets tower targets world =
   case towerType tower of
+    -- Archer-type towers prioritize climbers and inside-fort enemies
     ArrowTower -> prioritizeArcherTargets targets
+    CrossbowTower -> prioritizeArcherTargets targets
+    PoisonTower -> prioritizeArcherTargets targets
+    -- Siege towers also prioritize inside-fort threats
+    CatapultTower -> prioritizeSiegeTargets targets world
+    BombardTower -> prioritizeSiegeTargets targets world
     _ -> prioritizeDefaultTargets targets world
 
--- CRITICAL: Archer towers prioritize climbers first
+-- CRITICAL: Archer towers prioritize climbers and inside-fort enemies first
 prioritizeArcherTargets :: [Enemy] -> [Enemy]
 prioritizeArcherTargets targets =
-  let climbing = filter (\e -> case enemyAIState e of
-                                ClimbingWall _ -> True
-                                _ -> False) targets
+  let -- Highest priority: enemies climbing walls
+      climbing = filter (\e -> case enemyAIState e of
+                               ClimbingWall _ -> True
+                               _ -> False) targets
+      -- Second priority: enemies already inside fort attacking defenses
       insideFort = filter (\e -> case enemyAIState e of
-                                  InsideFort -> True
-                                  AttackingTower _ -> True
-                                  AttackingCastle -> True
-                                  _ -> False) targets
+                                 InsideFort -> True
+                                 AttackingTower _ -> True
+                                 AttackingCastle -> True
+                                 _ -> False) targets
+      -- Third priority: enemies attacking walls (trying to breach)
+      attackingWall = filter (\e -> case enemyAIState e of
+                                    AttackingWall _ -> True
+                                    _ -> False) targets
+      -- Fourth priority: enemies attacking gate
       attackingGate = filter (\e -> case enemyAIState e of
-                                     AttackingGate -> True
-                                     _ -> False) targets
+                                    AttackingGate -> True
+                                    _ -> False) targets
+      -- Lowest priority: enemies still moving
       others = filter (\e -> case enemyAIState e of
-                              MovingToFort -> True
-                              _ -> False) targets
-  in climbing ++ insideFort ++ attackingGate ++ others
+                             MovingToFort -> True
+                             _ -> False) targets
+  in climbing ++ insideFort ++ attackingWall ++ attackingGate ++ others
+
+-- Siege towers prioritize enemies inside fort and high-threat targets
+prioritizeSiegeTargets :: [Enemy] -> World -> [Enemy]
+prioritizeSiegeTargets targets world =
+  let -- Highest priority: enemies inside fort attacking castle/towers
+      insideFort = filter (\e -> case enemyAIState e of
+                                 InsideFort -> True
+                                 AttackingTower _ -> True
+                                 AttackingCastle -> True
+                                 _ -> False) targets
+      insideFortIds = map enemyId insideFort
+      -- Second: climbers
+      climbing = filter (\e -> case enemyAIState e of
+                               ClimbingWall _ -> True
+                               _ -> False) targets
+      climbingIds = map enemyId climbing
+      -- Third: heavy/siege units
+      heavyUnits = filter (\e -> enemyRole e `elem` [Heavy, Siege, Boss]) targets
+      heavyIds = map enemyId heavyUnits
+      -- Rest by distance (exclude already prioritized)
+      castle' = castle world
+      allPriorityIds = insideFortIds ++ climbingIds ++ heavyIds
+      others = L.sortBy (\e1 e2 -> compare
+                          (distance (enemyPos e1) (castlePos castle'))
+                          (distance (enemyPos e2) (castlePos castle'))) 
+               (filter (\e -> enemyId e `notElem` allPriorityIds) targets)
+  in insideFort ++ climbing ++ heavyUnits ++ others
 
 prioritizeDefaultTargets :: [Enemy] -> World -> [Enemy]
 prioritizeDefaultTargets targets world =
-  let castle' = castle world
-      byDistance = L.sortBy (\e1 e2 -> compare
-                              (distance (enemyPos e1) (castlePos castle'))
-                              (distance (enemyPos e2) (castlePos castle'))) targets
-  in byDistance
+  let -- Still prioritize inside-fort threats
+      insideFort = filter (\e -> case enemyAIState e of
+                                 InsideFort -> True
+                                 AttackingTower _ -> True
+                                 AttackingCastle -> True
+                                 ClimbingWall _ -> True
+                                 _ -> False) targets
+      insideFortIds = map enemyId insideFort
+      castle' = castle world
+      others = L.sortBy (\e1 e2 -> compare
+                          (distance (enemyPos e1) (castlePos castle'))
+                          (distance (enemyPos e2) (castlePos castle'))) 
+               (filter (\e -> enemyId e `notElem` insideFortIds) targets)
+  in insideFort ++ others
 
 distance :: Vec2 -> Vec2 -> Float
 distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)

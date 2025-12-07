@@ -356,6 +356,23 @@ renderEnemySpriteShape WallClimber _ size =
     , color darkStoneGray $ circleSolid (size * 0.4)
     , color silver $ translate (-size * 0.3) 0 $ rectangleSolid (size * 0.1) (size * 0.6) -- Hook
     ]
+-- Berserker: Wild melee fighter with dual axes
+renderEnemySpriteShape Berserker _ size =
+  pictures
+    [ color (makeColor 0.9 0.4 0.1 1) $ rectangleSolid (size * 1.4) (size * 1.6)  -- Body
+    , color (makeColor 0.8 0.3 0.1 1) $ circleSolid (size * 0.5)  -- Head
+    , color (makeColor 1.0 0.5 0.2 1) $ translate 0 (size * 0.5) $ circleSolid (size * 0.3)  -- Wild hair
+    , color silver $ translate (-size * 0.5) 0 $ rectangleSolid (size * 0.15) (size * 0.8)  -- Left axe
+    , color silver $ translate (size * 0.5) 0 $ rectangleSolid (size * 0.15) (size * 0.8)   -- Right axe
+    ]
+-- Assassin: Stealthy short-range attacker
+renderEnemySpriteShape Assassin _ size =
+  pictures
+    [ color (makeColor 0.3 0.15 0.4 1) $ rectangleSolid (size * 1.0) (size * 1.4)  -- Cloak
+    , color (makeColor 0.4 0.2 0.5 1) $ translate 0 (size * 0.4) $ circleSolid (size * 0.35)  -- Hood
+    , color silver $ translate (-size * 0.35) (-size * 0.2) $ rectangleSolid (size * 0.08) (size * 0.5)  -- Left dagger
+    , color silver $ translate (size * 0.35) (-size * 0.2) $ rectangleSolid (size * 0.08) (size * 0.5)   -- Right dagger
+    ]
 renderEnemySpriteShape BoulderRamCrew _ size =
   pictures
     [ color darkBrown $ rectangleSolid (size * 2.2) (size * 1.8)
@@ -398,6 +415,8 @@ enemyTypeColor Pyromancer = makeColor 0.8 0.3 0.1 1
 enemyTypeColor Necromancer = makeColor 0.3 0.3 0.4 1
 enemyTypeColor TrapBreaker = makeColor 0.2 0.5 0.2 1
 enemyTypeColor WallClimber = makeColor 0.1 0.1 0.1 1
+enemyTypeColor Berserker = makeColor 0.9 0.4 0.1 1    -- Orange-red for berserker rage
+enemyTypeColor Assassin = makeColor 0.4 0.2 0.5 1    -- Dark purple for assassin
 enemyTypeColor BoulderRamCrew = makeColor 0.4 0.3 0.3 1
 enemyTypeColor IronbackMinotaur = makeColor 0.7 0.4 0.2 1
 enemyTypeColor FireDrake = makeColor 0.8 0.2 0.1 1
