@@ -148,21 +148,19 @@ checkEnemyFortCollision world enemy =
         case M.lookup tid (traps world) of
           Nothing -> world  -- Trap already destroyed
           Just trap ->
-            let -- Apply damage to trap
-                newHP = trapHP trap - enemyDamage enemy
-                trap' = trap { trapHP = newHP }
+            let -- Traps are destroyed in one hit
                 impactEffect = ImpactFlash (trapPos trap) 0.15 0.15
                 attackParticle = EnemyAttackParticle (enemyPos enemy) (trapPos trap) 0.2
-                effects' = impactEffect : attackParticle : visualEffects world
+                explosionEffect = ExplosionEffect (trapPos trap) 0.3 0.3  -- Trap destruction effect
+                effects' = impactEffect : attackParticle : explosionEffect : visualEffects world
                 enemy' = enemy { enemyLastAttackTime = timeElapsed world }
                 enemies' = M.insert (enemyId enemy) enemy' (enemies world)
-                -- Remove trap if destroyed
-                traps' = if newHP <= 0
-                         then M.delete tid (traps world)
-                         else M.insert tid trap' (traps world)
+                -- Destroy trap immediately (one hit kill)
+                traps' = M.delete tid (traps world)
                 -- Sound
                 soundAttack = SoundEnemyAttack (enemyType enemy)
-                events = soundAttack : soundEvents world
+                soundTrapDestroyed = SoundTrapTriggered  -- Use trap destruction sound
+                events = soundAttack : soundTrapDestroyed : soundEvents world
             in world { traps = traps', enemies = enemies', visualEffects = effects', soundEvents = events }
       else world
     

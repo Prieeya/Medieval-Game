@@ -55,11 +55,14 @@ shouldAttackTrap enemy =
   (PreferTraps `elem` enemyTargetPrefs enemy)
 
 -- Find a revealed trap nearby that the enemy can attack
+-- Traps are revealed when enemies see them (handled in collision system)
 findNearbyRevealedTrap :: Enemy -> World -> Maybe EntityId
 findNearbyRevealedTrap enemy world =
   let trapList = M.elems (traps world)
+      -- Attack range: enemies can attack revealed traps within 60 pixels
+      attackRange = 60.0
       revealedTraps = filter trapRevealed trapList
-      nearbyTraps = filter (\t -> Path.distance (enemyPos enemy) (trapPos t) < 60) revealedTraps
+      nearbyTraps = filter (\t -> Path.distance (enemyPos enemy) (trapPos t) < attackRange) revealedTraps
   in case nearbyTraps of
        [] -> Nothing
        (t:_) -> Just (trapId t)

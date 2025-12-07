@@ -6,6 +6,7 @@ import Config
 import qualified Physics.PhysicsCore as Physics
 import qualified Physics.Collision as Collision
 import qualified Physics.Projectiles as Projectiles
+import qualified AI.Pathfinding as Path
 import qualified AI.FSM as FSM
 import qualified AI.ThreatAnalysis as ThreatAnalysis
 import qualified AI.Director as Director
@@ -39,20 +40,21 @@ updateGameSystems :: Float -> World -> World
 updateGameSystems dt world =
   let world1 = WaveSystem.updateWaveSystem dt world
       world2 = updateAbilities dt world1
-      world3 = updateEnemies dt world2
-      world4 = updateTowers dt world3
-      world5 = updateTraps dt world4
-      world6 = updateProjectiles dt world5
-      world7 = handleCollisions world6
-      world8 = applyDamage world7
+      world3 = revealTrapsNearEnemies dt world2  -- Reveal traps when enemies see them
+      world4 = updateEnemies dt world3
+      world5 = updateTowers dt world4
+      world6 = updateTraps dt world5
+      world7 = updateProjectiles dt world6
+      world8 = handleCollisions world7
+      world9 = applyDamage world8
       -- Re-update enemy AI states after damage is applied and gate status updated
-      world8' = let enemies' = M.map (updateEnemy dt world8) (enemies world8)
-                in world8 { enemies = enemies' }
-      world9 = cleanupDead world8'
-      world10 = updateVisualEffects dt world9
-      world11 = updateThreatAnalysis world10
-      world12 = updateGameMessage dt world11
-  in world12
+      world9' = let enemies' = M.map (updateEnemy dt world9) (enemies world9)
+                in world9 { enemies = enemies' }
+      world10 = cleanupDead world9'
+      world11 = updateVisualEffects dt world10
+      world12 = updateThreatAnalysis world11
+      world13 = updateGameMessage dt world12
+  in world13
 
 -- ============================================================================
 -- Enemy Updates
@@ -228,6 +230,24 @@ isEffectAlive (EnemyAttackParticle _ _ life) = life > 0
 updateAbilities :: Float -> World -> World
 updateAbilities dt world =
   AbilitySystem.updateAbilities dt world
+
+-- ============================================================================
+-- Trap Revelation System
+-- ============================================================================
+
+-- Reveal traps when enemies see them (within vision range)
+revealTrapsNearEnemies :: Float -> World -> World
+revealTrapsNearEnemies _ world =
+  let enemyList = M.elems (enemies world)
+      visionRange = 80.0  -- Vision range: enemies can see traps within 80 pixels
+      checkTrap trap = 
+        if trapRevealed trap
+        then trap
+        else
+          let isVisible = or [Path.distance (enemyPos enemy) (trapPos trap) < visionRange | enemy <- enemyList]
+          in if isVisible then trap { trapRevealed = True } else trap
+      revealedTraps = M.map checkTrap (traps world)
+  in world { traps = revealedTraps }
 
 -- ============================================================================
 -- Threat Analysis

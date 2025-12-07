@@ -138,12 +138,17 @@ updateMusicState musicState dt
         else return musicState { musicCheckTimer = newCheckTimer }
 
 -- Set music intensity based on game state
+-- Ensures music continues playing during phase changes
 setMusicIntensity :: MusicState -> MusicIntensity -> IO MusicState
 setMusicIntensity musicState intensity
   | musicIntensity musicState == intensity = return musicState  -- No change
   | otherwise = do
       hPutStrLn stderr $ "Music intensity changed to: " ++ show intensity
-      return musicState { musicIntensity = intensity }
+      -- Ensure music continues playing - restart if needed
+      newState <- case currentTrack musicState of
+        Just path -> playMusic musicState path  -- Restart to ensure continuous playback
+        Nothing -> return musicState
+      return newState { musicIntensity = intensity }
 
 -- Stop music
 stopMusic :: MusicState -> IO MusicState

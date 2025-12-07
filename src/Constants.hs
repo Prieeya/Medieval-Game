@@ -395,7 +395,7 @@ castleMaxHP = 2000
 -- ============================================================================
 
 startingGold :: Int
-startingGold = 350  -- Challenging starting gold
+startingGold = 500  -- Starting gold
 
 
 baseWaveGold :: Int
