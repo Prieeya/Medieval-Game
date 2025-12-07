@@ -57,11 +57,12 @@ data UnitType
 
 data EnemyAIState
   = MovingToFort
-  | AttackingGate
+  | AttackingGate Int        -- Int is the gate index (0, 1, or 2)
   | AttackingWall Int
   | ClimbingWall Int
   | InsideFort
   | AttackingTower EntityId
+  | AttackingTrap EntityId   -- Enemy attacks a revealed trap
   | AttackingCastle
   | Dead
   deriving (Show, Eq, Generic)
@@ -103,6 +104,8 @@ data Enemy = Enemy
   , bossAbilityCooldown :: Float  -- Cooldown for boss special abilities
   , bossLastAbilityTime :: Float  -- When last boss ability was used
   , bossSpawnTimer :: Float  -- Timer for boss minion spawning
+  , enemyTargetGate :: Int   -- Which gate this enemy targets (0, 1, or 2)
+  , enemyAttackOffset :: Vec2 -- Random offset for attack position
   } deriving (Show, Generic)
 
 data SpawnSide = LeftSide | CenterSide | RightSide
@@ -161,6 +164,9 @@ data Trap = Trap
   , trapActiveTime :: Float
   , trapAffectedEnemies :: S.Set EntityId
   , trapAnimState :: AnimationState  -- Animation state and frame
+  , trapHP :: Float                  -- HP for trap (can be destroyed by enemies)
+  , trapMaxHP :: Float               -- Max HP
+  , trapRevealed :: Bool             -- Whether trap is visible to enemies
   } deriving (Show, Generic)
 
 -- ============================================================================
@@ -229,7 +235,8 @@ data WallSegment = WallSegment
   } deriving (Show, Generic)
 
 data Gate = Gate
-  { gatePos :: Vec2
+  { gateId :: Int            -- Gate index (0, 1, 2)
+  , gatePos :: Vec2
   , gateHP :: Float
   , gateMaxHP :: Float
   , gateWidth :: Float
@@ -239,7 +246,7 @@ data Gate = Gate
 
 data Fort = Fort
   { fortWalls :: [WallSegment]
-  , fortGate :: Gate
+  , fortGates :: [Gate]      -- Multiple gates (3 gates)
   , fortBounds :: (Vec2, Vec2)
   , fortInteriorDefences :: [InteriorDefence]
   } deriving (Show, Generic)

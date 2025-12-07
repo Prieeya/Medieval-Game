@@ -103,10 +103,11 @@ analyzeTrapUsage world =
 
 analyzeGateDamage :: World -> Float
 analyzeGateDamage world =
-  let gate = fortGate (fort world)
-      currentHP = gateHP gate
-      maxHP = gateMaxHP gate
-  in 1.0 - (currentHP / maxHP)
+  let gates = fortGates (fort world)
+      -- Calculate average damage across all gates
+      totalDamage = sum $ map (\g -> 1.0 - (gateHP g / gateMaxHP g)) gates
+      gateCount = fromIntegral (length gates)
+  in if gateCount > 0 then totalDamage / gateCount else 0
 
 analyzeCastleDamage :: World -> Float
 analyzeCastleDamage world =

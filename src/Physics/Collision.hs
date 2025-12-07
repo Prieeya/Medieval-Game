@@ -61,11 +61,15 @@ handleEnemyFortCollisions world =
 checkEnemyFortCollision :: World -> Enemy -> World
 checkEnemyFortCollision world enemy =
   case enemyAIState enemy of
-    AttackingGate ->
+    AttackingGate gateIdx ->
       if timeElapsed world - enemyLastAttackTime enemy >= enemyAttackCooldown enemy
       then
-        let gate' = applyDamageToGate (enemyDamage enemy) (fortGate $ fort world)
-            fort' = (fort world) { fortGate = gate' }
+        let gates = fortGates (fort world)
+            targetGate = if gateIdx < length gates then gates !! gateIdx else head gates
+            gate' = applyDamageToGate (enemyDamage enemy) targetGate
+            -- Update the specific gate in the list
+            gates' = take gateIdx gates ++ [gate'] ++ drop (gateIdx + 1) gates
+            fort' = (fort world) { fortGates = gates' }
             gatePos' = gatePos gate'
             effect = GateFlash 0.15
             -- Add attack particle from enemy to gate
@@ -75,7 +79,7 @@ checkEnemyFortCollision world enemy =
             enemies' = M.insert (enemyId enemy) enemy' (enemies world)
             -- Sounds
             soundAttack = SoundEnemyAttack (enemyType enemy)
-            soundGate = if gateDestroyed gate' && not (gateDestroyed (fortGate (fort world))) 
+            soundGate = if gateDestroyed gate' && not (gateDestroyed targetGate) 
                         then SoundGateDestroyed 
                         else SoundGateHit
             events' = soundAttack : soundGate : soundEvents world
@@ -138,6 +142,30 @@ checkEnemyFortCollision world enemy =
         in world { castle = castle', enemies = enemies', visualEffects = effects', soundEvents = events' }
       else world
     
+    AttackingTrap tid ->
+      if timeElapsed world - enemyLastAttackTime enemy >= enemyAttackCooldown enemy
+      then
+        case M.lookup tid (traps world) of
+          Nothing -> world  -- Trap already destroyed
+          Just trap ->
+            let -- Apply damage to trap
+                newHP = trapHP trap - enemyDamage enemy
+                trap' = trap { trapHP = newHP }
+                impactEffect = ImpactFlash (trapPos trap) 0.15 0.15
+                attackParticle = EnemyAttackParticle (enemyPos enemy) (trapPos trap) 0.2
+                effects' = impactEffect : attackParticle : visualEffects world
+                enemy' = enemy { enemyLastAttackTime = timeElapsed world }
+                enemies' = M.insert (enemyId enemy) enemy' (enemies world)
+                -- Remove trap if destroyed
+                traps' = if newHP <= 0
+                         then M.delete tid (traps world)
+                         else M.insert tid trap' (traps world)
+                -- Sound
+                soundAttack = SoundEnemyAttack (enemyType enemy)
+                events = soundAttack : soundEvents world
+            in world { traps = traps', enemies = enemies', visualEffects = effects', soundEvents = events }
+      else world
+    
     _ -> world
 
 handleEnemyTrapCollisions :: World -> World
@@ -149,7 +177,7 @@ handleEnemyTrapCollisions world =
 
 checkEnemyTraps :: (World, [EntityId]) -> Enemy -> [Trap] -> (World, [EntityId])
 checkEnemyTraps (world, affected) enemy traps =
-  let nearbyTraps = filter (\t -> distance (trapPos t) (enemyPos enemy) < 25) traps  -- Reduced from 30 to match smaller trap size
+  let nearbyTraps = filter (\t -> distance (trapPos t) (enemyPos enemy) < 25) traps
       (world', affected') = foldl (\acc trap -> triggerTrapOnEnemy acc enemy trap) (world, affected) nearbyTraps
   in (world', affected')
 
@@ -166,11 +194,14 @@ triggerTrapOnEnemy (world, affected) enemy trap =
         
         enemy' = TrapSystem.applyTrapEffects trap' $ applyDamageToEnemy damage enemy
         
-        traps' = M.insert (trapId trap) trap' (traps world)
+        -- Trap is revealed when triggered
+        trap'' = trap' { trapRevealed = True }
+        
+        traps' = M.insert (trapId trap) trap'' (traps world)
         enemies' = M.insert (enemyId enemy) enemy' (enemies world)
         effects' = effects ++ visualEffects world
         
-        traps'' = if isTrapBreaker || TrapSystem.shouldRemoveTrap trap'
+        traps'' = if isTrapBreaker || TrapSystem.shouldRemoveTrap trap''
                   then M.delete (trapId trap) traps'
                   else traps'
         

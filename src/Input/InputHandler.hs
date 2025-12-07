@@ -207,24 +207,26 @@ requestReset world =
 
 upgradeGate :: World -> World
 upgradeGate world =
-  let currentGate = fortGate (fort world)
-      lvl = gateLevel currentGate
+  let gates = fortGates (fort world)
+      -- Use the first gate's level as the overall gate level
+      lvl = if null gates then 1 else gateLevel (head gates)
       cost = Constants.gateUpgradeBaseCost + lvl * 100
       resources' = resources world
   in if resGold resources' >= cost
      then
        let newMaxHP = Constants.gateMaxHP + fromIntegral lvl * Constants.gateHPPerLevel
-           newGate = currentGate 
+           -- Upgrade all gates
+           gates' = map (\g -> g 
              { gateLevel = lvl + 1
              , gateMaxHP = newMaxHP
              , gateHP = newMaxHP -- Max heal
              , gateDestroyed = False -- Repair if destroyed
-             }
+             }) gates
            newRes = ResourceSystem.spendGold cost resources'
-           fort' = (fort world) { fortGate = newGate }
+           fort' = (fort world) { fortGates = gates' }
            -- Sound and message
            events = SoundUpgrade : soundEvents world
-           message = Just ("Gate Upgraded to Level " ++ show (lvl + 1) ++ "! (-" ++ show cost ++ "g)", 3.0)
+           message = Just ("All Gates Upgraded to Level " ++ show (lvl + 1) ++ "! (-" ++ show cost ++ "g)", 3.0)
        in world { fort = fort', resources = newRes, soundEvents = events, gameMessage = message }
      else 
        let message = Just ("Not enough gold! Need " ++ show cost ++ "g", 2.0)
@@ -267,6 +269,7 @@ placeTrap trapType pos world
   | resGold (resources world) < trapCost trapType = world
   | otherwise =
       let initialAnim = AnimationState { animType = AnimIdle, animFrame = 0, animTime = 0 }
+          maxHP = Constants.trapMaxHP trapType
           trap = Trap
             { trapId = nextEntityId world
             , trapType = trapType
@@ -275,6 +278,9 @@ placeTrap trapType pos world
             , trapActiveTime = 0
             , trapAffectedEnemies = mempty
             , trapAnimState = initialAnim
+            , trapHP = maxHP
+            , trapMaxHP = maxHP
+            , trapRevealed = False  -- Traps start hidden
             }
           traps' = M.insert (nextEntityId world) trap (traps world)
           resources' = ResourceSystem.spendGold (trapCost trapType) (resources world)
@@ -353,7 +359,8 @@ isInsideFort (x, y) =
 isValidTowerPlacement :: Vec2 -> World -> Bool
 isValidTowerPlacement pos world =
   let tooCloseToTower = any (\t -> distance (towerPos t) pos < 50) (M.elems $ towers world)
-      tooCloseToGate = distance pos (gatePos $ fortGate $ fort world) < 60
+      gates = fortGates (fort world)
+      tooCloseToGate = any (\g -> distance pos (gatePos g) < 60) gates
       tooCloseToCastle = distance pos (castlePos $ castle world) < 100
   in not (tooCloseToTower || tooCloseToGate || tooCloseToCastle)
 
@@ -363,36 +370,39 @@ isValidTrapPlacement pos world =
   in not tooCloseToTrap
 
 -- ============================================================================
--- Gate Repair
+-- Gate Repair (repairs all damaged gates)
 -- ============================================================================
 
 repairGateIfPending :: World -> World
 repairGateIfPending world =
-  let currentGate = fortGate (fort world)
-      currentHP = gateHP currentGate
-      currentMaxHP = gateMaxHP currentGate
-      isDamaged = currentHP < currentMaxHP
-      cost = Constants.gateRepairCost
+  let gates = fortGates (fort world)
+      -- Find all damaged gates and calculate total repair cost
+      damagedGates = filter (\g -> gateHP g < gateMaxHP g) gates
+      totalDamage = sum $ map (\g -> gateMaxHP g - gateHP g) damagedGates
+      destroyedCount = length $ filter gateDestroyed damagedGates
+      baseCost = round (totalDamage * Constants.gateRepairCostPerHP)
+      destroyedBonus = destroyedCount * Constants.gateDestroyedBonus
+      cost = max Constants.gateRepairMinCost (baseCost + destroyedBonus)
       hasEnoughGold = resGold (resources world) >= cost
-  in if isDamaged && hasEnoughGold
+      hasDamage = not (null damagedGates)
+  in if hasDamage && hasEnoughGold
      then
        let -- Deduct gold
            resources' = ResourceSystem.spendGold cost (resources world)
-           -- Repair gate to full HP
-           gate' = currentGate 
-             { gateHP = currentMaxHP
-             , gateDestroyed = False
-             }
-           fort' = (fort world) { fortGate = gate' }
+           -- Repair all gates to full HP
+           gates' = map (\g -> g { gateHP = gateMaxHP g, gateDestroyed = False }) gates
+           fort' = (fort world) { fortGates = gates' }
            -- Sound and message
            events = SoundGateRepaired : soundEvents world
-           message = Just ("Gate Repaired! (-" ++ show cost ++ "g)", 3.0)
+           gateCount = length damagedGates
+           message = Just ("Repaired " ++ show gateCount ++ " gate(s)! (-" ++ show cost ++ "g)", 3.0)
            ws = waveState world
            ws' = ws { wsGateRepairPending = False }
        in world { fort = fort', resources = resources', waveState = ws', soundEvents = events, gameMessage = message }
-     else if isDamaged && not hasEnoughGold
+     else if hasDamage && not hasEnoughGold
           then
-            let message = Just ("Not enough gold! Need " ++ show cost ++ "g to repair", 2.0)
+            let gateCount = length damagedGates
+                message = Just ("Need " ++ show cost ++ "g to repair " ++ show gateCount ++ " gate(s)", 2.0)
                 events = SoundError : soundEvents world
             in world { gameMessage = message, soundEvents = events }
           else world  -- Do nothing if conditions not met

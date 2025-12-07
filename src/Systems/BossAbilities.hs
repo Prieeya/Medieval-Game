@@ -67,7 +67,10 @@ useBossAbility enemy world = case enemyType enemy of
 useChargeAttack :: Enemy -> World -> (Enemy, World)
 useChargeAttack enemy world =
   let (x, y) = enemyPos enemy
-      gatePos' = gatePos $ fortGate $ fort world
+      gates = fortGates (fort world)
+      targetGateIdx = enemyTargetGate enemy
+      targetGate = if targetGateIdx < length gates then gates !! targetGateIdx else head gates
+      gatePos' = gatePos targetGate
       (gx, gy) = gatePos'
       -- Charge direction toward gate
       dx = gx - x
@@ -88,7 +91,10 @@ useChargeAttack enemy world =
 useFireBreath :: Enemy -> World -> (Enemy, World)
 useFireBreath enemy world =
   let (x, y) = enemyPos enemy
-      gatePos' = gatePos $ fortGate $ fort world
+      gates = fortGates (fort world)
+      targetGateIdx = enemyTargetGate enemy
+      targetGate = if targetGateIdx < length gates then gates !! targetGateIdx else head gates
+      gatePos' = gatePos targetGate
       (gx, gy) = gatePos'
       (dx, dy) = (gx - x, gy - y)
       dist = sqrt (dx*dx + dy*dy)

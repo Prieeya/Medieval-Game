@@ -196,9 +196,13 @@ renderFort :: World -> Picture
 renderFort world = pictures
   [ renderPixelFort fortCenterX 0 fortWidth fortHeight  -- Fort interior ground
   , renderWalls (fortWalls $ fort world)
-  , renderGate (fortGate $ fort world)
+  , renderGates (fortGates $ fort world)  -- Render all 3 gates
   , renderCornerTowers  -- Add decorative corner towers
   ]
+
+-- Render all gates
+renderGates :: [Gate] -> Picture
+renderGates gates = pictures $ map renderGate gates
 
 -- Render decorative conical corner towers on fort
 renderCornerTowers :: Picture
@@ -502,7 +506,8 @@ renderDeploymentPreview world =
           -- Check if position is valid (simplified check)
           isInside = mx >= fortLeft && mx <= fortRight && my >= fortBottom && my <= fortTop
           tooCloseToTower = any (\t -> distance (towerPos t) (mx, my) < 50) (M.elems $ towers world)
-          tooCloseToGate = distance (mx, my) (gatePos $ fortGate $ fort world) < 60
+          gates = fortGates (fort world)
+          tooCloseToGate = any (\g -> distance (mx, my) (gatePos g) < 60) gates
           tooCloseToCastle = distance (mx, my) (castlePos $ castle world) < 100
           isValid = isInside && not tooCloseToTower && not tooCloseToGate && not tooCloseToCastle
           -- RED transparent arch (50% alpha) before placement - pointing left toward enemies
@@ -617,28 +622,81 @@ renderTrap currentTime trap =
       baseSize = 64  -- 64x64 base resolution as per JSON
       -- Apply scaling: traps are smaller than towers
       size = baseSize * globalPixelScale * trapScale  -- Use trapScale for smaller traps
-      -- Use animated sprite rendering
-      sprite = renderAnimatedTrap (trapType trap) (trapAnimState trap) size
+      -- Check if trap is revealed or hidden
+      isRevealed = trapRevealed trap
+      -- Hidden traps show only a subtle ground marking (player can see, enemies can't)
+      hiddenMarker = if not isRevealed
+                     then color (makeColor 0.3 0.3 0.3 0.3) $ circleSolid (size * 0.8)
+                     else blank
+      -- Use animated sprite rendering (only show full trap if revealed)
+      sprite = if isRevealed 
+               then renderAnimatedTrap (trapType trap) (trapAnimState trap) size
+               else blank
       -- Always render pixel art fallback first, then sprite on top (if loaded)
-      -- This ensures traps are always visible even if sprites fail to load
-      fallbackSprite = renderTrapSprite (trapType trap) size
+      fallbackSprite = if isRevealed
+                       then renderTrapSprite (trapType trap) size
+                       else renderHiddenTrapHint (trapType trap) size
       -- Add visual indicator if trap is active/triggered
       activeIndicator = if trapTriggered trap || not (S.null (trapAffectedEnemies trap))
-                       then renderTrapActiveIndicator (trapType trap) size
+                       then renderTrapActiveIndicator (trapType trap) size currentTime
                        else blank
-  in translate x y $ pictures [fallbackSprite, sprite, activeIndicator]
+      -- HP bar for revealed traps
+      hpBar = if isRevealed && trapHP trap < Types.trapMaxHP trap
+              then renderTrapHPBar trap size
+              else blank
+  in translate x y $ pictures [hiddenMarker, fallbackSprite, sprite, activeIndicator, hpBar]
+
+-- Render a subtle hint for hidden traps (player can see, enemies can't)
+renderHiddenTrapHint :: TrapType -> Float -> Picture
+renderHiddenTrapHint tt size =
+  let hintColor = case tt of
+        SpikeTrap -> makeColor 0.4 0.4 0.4 0.25
+        FreezeTrap -> makeColor 0.3 0.5 0.7 0.25
+        FirePitTrap -> makeColor 0.8 0.4 0.1 0.25
+        MagicSnareTrap -> makeColor 0.5 0.3 0.6 0.25
+        ExplosiveBarrel -> makeColor 0.7 0.2 0.2 0.25
+  in pictures
+    [ color hintColor $ rectangleSolid (size * 1.5) (size * 1.5)
+    , color (makeColor 1 1 1 0.15) $ rectangleWire (size * 1.5) (size * 1.5)
+    ]
+
+-- HP bar for damaged traps
+renderTrapHPBar :: Trap -> Float -> Picture
+renderTrapHPBar trap size =
+  let hpRatio = trapHP trap / Types.trapMaxHP trap
+      barWidth = size * 1.5
+      barHeight = 4
+      barY = size * 0.9
+  in translate 0 barY $ pictures
+    [ color (makeColor 0.2 0.2 0.2 0.8) $ rectangleSolid barWidth barHeight
+    , translate (-(barWidth * (1 - hpRatio) / 2)) 0 $ 
+        color (makeColor 0.8 0.2 0.2 0.9) $ rectangleSolid (barWidth * hpRatio) barHeight
+    ]
 
 -- Visual indicator when trap is active/triggered
-renderTrapActiveIndicator :: TrapType -> Float -> Picture
-renderTrapActiveIndicator trapType size =
-  let pulse = sin (size * 0.1) * 0.3 + 0.7  -- Pulsing effect
-      indicatorColor = case trapType of
-        SpikeTrap -> makeColor 1 0.5 0.5 (0.6 * pulse)
-        FreezeTrap -> makeColor 0.5 0.8 1 (0.6 * pulse)
+renderTrapActiveIndicator :: TrapType -> Float -> Float -> Picture
+renderTrapActiveIndicator tt size currentTime =
+  let pulse = sin (currentTime * 8) * 0.3 + 0.7  -- Pulsing effect based on time
+      baseAlpha = 0.6 * pulse
+      indicatorColor = case tt of
+        SpikeTrap -> makeColor 1 0.5 0.5 baseAlpha
+        FreezeTrap -> makeColor 0.5 0.8 1 baseAlpha
         FirePitTrap -> makeColor 1 0.6 0.2 (0.7 * pulse)
-        MagicSnareTrap -> makeColor 0.8 0.5 1 (0.6 * pulse)
+        MagicSnareTrap -> makeColor 0.8 0.5 1 baseAlpha
         ExplosiveBarrel -> makeColor 1 0.3 0.1 (0.8 * pulse)
-  in color indicatorColor $ circleSolid (size * 1.2)
+      -- Add animated effect rings
+      ring1Alpha = 0.3 * pulse
+      ring1Color = case tt of
+        SpikeTrap -> makeColor 1 0.5 0.5 ring1Alpha
+        FreezeTrap -> makeColor 0.5 0.8 1 ring1Alpha
+        FirePitTrap -> makeColor 1 0.6 0.2 ring1Alpha
+        MagicSnareTrap -> makeColor 0.8 0.5 1 ring1Alpha
+        ExplosiveBarrel -> makeColor 1 0.3 0.1 ring1Alpha
+      ring1 = color ring1Color $ 
+              circleSolid (size * 1.2 + sin (currentTime * 4) * size * 0.2)
+      ring2 = color (makeColor 1 1 1 (0.2 * pulse)) $ 
+              thickCircle (size * 1.5) (size * 0.1)
+  in pictures [ring1, ring2]
 
 renderTrapSprite :: TrapType -> Float -> Picture
 renderTrapSprite SpikeTrap size =

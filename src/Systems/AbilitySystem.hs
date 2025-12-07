@@ -53,9 +53,9 @@ applyAbilityEffect _ world = world
 
 repairFort :: Fort -> Fort
 repairFort fort =
-  let gate' = (fortGate fort) { gateHP = Constants.gateMaxHP, gateDestroyed = False }
+  let gates' = map (\g -> g { gateHP = Constants.gateMaxHP, gateDestroyed = False }) (fortGates fort)
       walls' = map (\w -> w { wallHP = Constants.wallMaxHP }) (fortWalls fort)
-  in fort { fortGate = gate', fortWalls = walls' }
+  in fort { fortGates = gates', fortWalls = walls' }
 
 applyActiveAbilities :: Float -> World -> World
 applyActiveAbilities dt world =

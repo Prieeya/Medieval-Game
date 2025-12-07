@@ -164,11 +164,12 @@ onWaveCleared world =
 transitionToBuildPhase :: World -> World
 transitionToBuildPhase world =
   let ws = waveState world
-      isGateDestroyed = gateDestroyed (fortGate $ fort world)
+      gates = fortGates (fort world)
+      anyGateDestroyed = any gateDestroyed gates
       ws' = ws
         { wsPhase = BuildPhase buildPhaseTime
         , wsWaveCleared = True
-        , wsGateRepairPending = isGateDestroyed  -- Set repair pending if gate is destroyed
+        , wsGateRepairPending = anyGateDestroyed  -- Set repair pending if any gate is destroyed
         }
       -- Do NOT automatically repair gate - player must pay to repair
   in world { waveState = ws' }

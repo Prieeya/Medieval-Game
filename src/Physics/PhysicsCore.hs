@@ -12,7 +12,11 @@ import qualified Data.Set as S
 moveEnemy :: Float -> World -> Enemy -> Enemy
 moveEnemy dt world enemy =
   case enemyAIState enemy of
-    MovingToFort -> moveAlongPath dt world enemy
+    MovingToFort -> 
+      -- Wall climbers move toward climb points when close enough
+      if enemyCanClimb enemy && PreferWalls `elem` enemyTargetPrefs enemy
+      then moveTowardClimbPoint dt world enemy
+      else moveAlongPath dt world enemy
     InsideFort -> moveAlongPath dt world enemy
     AttackingTower tid ->
       -- Move toward tower if not in range
@@ -30,6 +34,21 @@ moveEnemy dt world enemy =
                              snd (enemyPos enemy) + snd vel * dt)
                in enemy { enemyPos = newPos, enemyVel = vel }
              else enemy  -- In range, stop moving
+    AttackingTrap tid ->
+      -- Move toward trap if not in range
+      case M.lookup tid (traps world) of
+        Nothing -> enemy  -- Trap destroyed
+        Just trap ->
+          let dist = Path.distance (enemyPos enemy) (trapPos trap)
+          in if dist > enemyAttackRange enemy
+             then
+               let dir = Path.directionTo (enemyPos enemy) (trapPos trap)
+                   spd = enemySpeed enemy * enemySlowFactor enemy
+                   vel = (fst dir * spd, snd dir * spd)
+                   newPos = (fst (enemyPos enemy) + fst vel * dt,
+                             snd (enemyPos enemy) + snd vel * dt)
+               in enemy { enemyPos = newPos, enemyVel = vel }
+             else enemy
     AttackingCastle ->
       -- Move toward castle if not in range
       let castlePos' = castlePos $ castle world
@@ -44,8 +63,31 @@ moveEnemy dt world enemy =
                          snd (enemyPos enemy) + snd vel * dt)
            in enemy { enemyPos = newPos, enemyVel = vel }
          else enemy  -- In range, stop moving
-    ClimbingWall _ -> enemy
+    ClimbingWall _ -> enemy  -- Don't move while climbing
+    AttackingWall _ -> enemy  -- Don't move while attacking wall
     _ -> enemy
+
+-- Move toward nearest climb point for wall-climbing enemies
+moveTowardClimbPoint :: Float -> World -> Enemy -> Enemy
+moveTowardClimbPoint dt world enemy =
+  let gates = fortGates (fort world)
+      targetGateIdx = enemyTargetGate enemy
+      targetGate = if targetGateIdx < length gates 
+                   then gates !! targetGateIdx 
+                   else head gates
+      gatePos' = gatePos targetGate
+      distToGate = Path.distance (enemyPos enemy) gatePos'
+  in if distToGate < 400  -- Close enough to start looking for climb points
+     then case Path.findNearestClimbPoint enemy world of
+            Just (_, climbPos) ->
+              let dir = Path.directionTo (enemyPos enemy) climbPos
+                  spd = enemySpeed enemy * enemySlowFactor enemy
+                  vel = (fst dir * spd, snd dir * spd)
+                  newPos = (fst (enemyPos enemy) + fst vel * dt,
+                            snd (enemyPos enemy) + snd vel * dt)
+              in enemy { enemyPos = newPos, enemyVel = vel }
+            Nothing -> moveAlongPath dt world enemy  -- No climb point, use normal path
+     else moveAlongPath dt world enemy  -- Too far, use normal path
 
 moveAlongPath :: Float -> World -> Enemy -> Enemy
 moveAlongPath dt world enemy =

@@ -54,28 +54,38 @@ initialCastle = Castle
 initialFort :: Fort
 initialFort = Fort
   { fortWalls = initialWalls
-  , fortGate = initialGate
+  , fortGates = initialGates  -- 3 gates now
   , fortBounds = ((fortLeft, fortBottom), (fortRight, fortTop))
   , fortInteriorDefences = []
   }
 
-initialGate :: Gate
-initialGate = Gate
-  { gatePos = (gateX, gateY)
-  , gateHP = Constants.gateMaxHP
-  , gateMaxHP = Constants.gateMaxHP
-  , gateWidth = Constants.gateWidth
-  , gateDestroyed = False
-  , gateLevel = 1
-  }
+-- Create 3 gates: top, center, bottom
+initialGates :: [Gate]
+initialGates =
+  [ Gate { gateId = 0, gatePos = (gateX, Constants.gate0Y), gateHP = Constants.gateMaxHP, gateMaxHP = Constants.gateMaxHP, gateWidth = Constants.gateWidth, gateDestroyed = False, gateLevel = 1 }
+  , Gate { gateId = 1, gatePos = (gateX, Constants.gate1Y), gateHP = Constants.gateMaxHP, gateMaxHP = Constants.gateMaxHP, gateWidth = Constants.gateWidth, gateDestroyed = False, gateLevel = 1 }
+  , Gate { gateId = 2, gatePos = (gateX, Constants.gate2Y), gateHP = Constants.gateMaxHP, gateMaxHP = Constants.gateMaxHP, gateWidth = Constants.gateWidth, gateDestroyed = False, gateLevel = 1 }
+  ]
 
 initialWalls :: [WallSegment]
 initialWalls =
-  [ WallSegment 0 (fortLeft, fortTop) (fortRight, fortTop) Constants.wallMaxHP Constants.wallMaxHP (Just (fortCenterX, fortTop))
-  , WallSegment 1 (fortLeft, fortBottom) (fortLeft, gateY - Constants.gateWidth/2) Constants.wallMaxHP Constants.wallMaxHP Nothing
-  , WallSegment 2 (fortLeft, gateY + Constants.gateWidth/2) (fortLeft, fortTop) Constants.wallMaxHP Constants.wallMaxHP Nothing
-  , WallSegment 3 (fortLeft, fortBottom) (fortRight, fortBottom) Constants.wallMaxHP Constants.wallMaxHP (Just (fortCenterX, fortBottom))
-  , WallSegment 4 (fortRight, fortBottom) (fortRight, fortTop) Constants.wallMaxHP Constants.wallMaxHP Nothing
+  -- Walls with gaps for 3 gates on the left side
+  let gw = Constants.gateWidth / 2
+      g0y = Constants.gate0Y
+      g1y = Constants.gate1Y
+      g2y = Constants.gate2Y
+  in
+  [ -- Top wall (horizontal)
+    WallSegment 0 (fortLeft, fortTop) (fortRight, fortTop) Constants.wallMaxHP Constants.wallMaxHP (Just (fortCenterX, fortTop))
+  -- Left wall segments (with gaps for 3 gates)
+  , WallSegment 1 (fortLeft, fortBottom) (fortLeft, g2y - gw) Constants.wallMaxHP Constants.wallMaxHP (Just (fortLeft + 20, (fortBottom + g2y - gw) / 2))
+  , WallSegment 2 (fortLeft, g2y + gw) (fortLeft, g1y - gw) Constants.wallMaxHP Constants.wallMaxHP Nothing
+  , WallSegment 3 (fortLeft, g1y + gw) (fortLeft, g0y - gw) Constants.wallMaxHP Constants.wallMaxHP Nothing
+  , WallSegment 4 (fortLeft, g0y + gw) (fortLeft, fortTop) Constants.wallMaxHP Constants.wallMaxHP (Just (fortLeft + 20, (g0y + gw + fortTop) / 2))
+  -- Bottom wall (horizontal)
+  , WallSegment 5 (fortLeft, fortBottom) (fortRight, fortBottom) Constants.wallMaxHP Constants.wallMaxHP (Just (fortCenterX, fortBottom))
+  -- Right wall (vertical)
+  , WallSegment 6 (fortRight, fortBottom) (fortRight, fortTop) Constants.wallMaxHP Constants.wallMaxHP (Just (fortRight - 20, 0))
   ]
 
 initialResources :: Resources
@@ -142,37 +152,39 @@ initialPaths = M.fromList
   , (RightSide, rightPath)
   ]
 
+-- Path to bottom gate (gate 2)
 leftPath :: [Vec2]
 leftPath =
   [ (leftSpawnX, -200)
-  , (-500, -150)
-  , (-300, -100)
-  , (-100, -50)
-  , (gateX, gateY)
+  , (-500, -180)
+  , (-300, Constants.gate2Y)
+  , (-100, Constants.gate2Y)
+  , (gateX, Constants.gate2Y)  -- Bottom gate
   ]
 
+-- Path to center gate (gate 1)
 centerPath :: [Vec2]
 centerPath =
   [ (centerSpawnX, 0)
   , (-300, 0)
-  , (-150, 0)
-  , (gateX, gateY)
+  , (-150, Constants.gate1Y)
+  , (gateX, Constants.gate1Y)  -- Center gate
   ]
 
+-- Path to top gate (gate 0)
 rightPath :: [Vec2]
 rightPath =
   [ (rightSpawnX, 200)
-  , (-200, 150)
-  , (-100, 100)
-  , (50, 50)
-  , (gateX, gateY)
+  , (-200, 180)
+  , (-100, Constants.gate0Y)
+  , (gateX, Constants.gate0Y)  -- Top gate
   ]
 
+-- Inside fort paths - converge toward castle from any gate
 initialInsideFortPaths :: [Vec2]
 initialInsideFortPaths =
-  [ (gateX + 50, gateY)
-  , (fortCenterX - 50, gateY)
-  , (fortCenterX, gateY)
+  [ (fortCenterX - 100, 0)  -- Move toward center
+  , (fortCenterX, 0)
   , (castleX - 100, castleY)
   , (castleX, castleY)
   ]
@@ -189,6 +201,15 @@ createEnemy eid ut pos side time =
       canClimb = ut `elem` [WallClimber, Berserker, Assassin]
       prefs = unitTypePreferences ut
       initialAnim = AnimationState { animType = AnimMove, animFrame = 0, animTime = 0 }
+      -- Assign target gate based on spawn side
+      targetGate = case side of
+        LeftSide -> 2   -- Bottom gate
+        CenterSide -> 1 -- Center gate
+        RightSide -> 0  -- Top gate
+      -- Generate pseudo-random attack offset based on entity ID
+      -- This spreads enemies around the gate instead of stacking
+      offsetX = fromIntegral ((eid * 17) `mod` 60) - 30  -- -30 to +30
+      offsetY = fromIntegral ((eid * 31) `mod` 80) - 40  -- -40 to +40
   in Enemy
     { enemyId = eid
     , enemyType = ut
@@ -218,6 +239,8 @@ createEnemy eid ut pos side time =
     , bossAbilityCooldown = if role == Boss then 0 else 999.0
     , bossLastAbilityTime = time
     , bossSpawnTimer = time
+    , enemyTargetGate = targetGate
+    , enemyAttackOffset = (offsetX, offsetY)
     }
 
 unitTypeToRole :: UnitType -> UnitRole

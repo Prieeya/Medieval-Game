@@ -630,7 +630,7 @@ renderPixelTrap _ _ size = color (pixelColor "gray") $ circleSolid (size / 2)
 -- Determine animation type based on enemy state
 enemyStateToAnimation :: EnemyAIState -> AnimationType
 enemyStateToAnimation Dead = AnimDeath
-enemyStateToAnimation AttackingGate = AnimAttack
+enemyStateToAnimation (AttackingGate _) = AnimAttack
 enemyStateToAnimation (AttackingTower _) = AnimAttack
 enemyStateToAnimation AttackingCastle = AnimAttack
 enemyStateToAnimation MovingToFort = AnimMove

@@ -33,14 +33,25 @@ fortRight = fortCenterX + fortWidth / 2
 fortTop = fortHeight / 2
 fortBottom = -fortHeight / 2
 
+-- Gate positions for 3 gates on the left wall
 gateX :: Float
 gateX = fortLeft
 
+-- Gate Y positions (top, center, bottom)
+gate0Y, gate1Y, gate2Y :: Float
+gate0Y = fortTop - 100     -- Top gate
+gate1Y = 0                 -- Center gate
+gate2Y = fortBottom + 100  -- Bottom gate
+
 gateY :: Float
-gateY = 0
+gateY = gate1Y  -- Default center gate (for backwards compatibility)
 
 gateWidth :: Float
-gateWidth = 80
+gateWidth = 80  -- Gate size (smaller since we have 3 now)
+
+-- Get gate position by index
+gatePositions :: [(Float, Float)]
+gatePositions = [(gateX, gate0Y), (gateX, gate1Y), (gateX, gate2Y)]
 
 -- ============================================================================
 -- Castle Position
@@ -191,6 +202,14 @@ trapSlowFactor :: TrapType -> Float
 trapSlowFactor FreezeTrap = 0.4  -- -60% slow
 trapSlowFactor _ = 1.0
 
+-- Trap HP (how much damage they can take before being destroyed)
+trapMaxHP :: TrapType -> Float
+trapMaxHP SpikeTrap = 30        -- Fragile
+trapMaxHP FreezeTrap = 50       -- Moderate
+trapMaxHP FirePitTrap = 80      -- Sturdy
+trapMaxHP MagicSnareTrap = 40   -- Moderate
+trapMaxHP ExplosiveBarrel = 20  -- Very fragile (explodes easily)
+
 -- ============================================================================
 -- Ability Stats
 -- ============================================================================
@@ -220,8 +239,17 @@ gateUpgradeBaseCost = 300  -- Base cost for upgrading gate
 gateHPPerLevel :: Float
 gateHPPerLevel = 500  -- HP increase per level
 
-gateRepairCost :: Int
-gateRepairCost = 75  -- Cost to repair gate to full HP
+-- Base repair cost per 100 HP of damage
+gateRepairCostPerHP :: Float
+gateRepairCostPerHP = 0.05  -- 5 gold per 100 HP damage (50 gold per 1000 HP)
+
+-- Minimum repair cost
+gateRepairMinCost :: Int
+gateRepairMinCost = 25
+
+-- Bonus cost if gate is completely destroyed
+gateDestroyedBonus :: Int
+gateDestroyedBonus = 100  -- Extra cost to rebuild from scratch
 
 wallMaxHP :: Float
 wallMaxHP = 600

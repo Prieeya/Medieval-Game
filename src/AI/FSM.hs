@@ -12,31 +12,68 @@ import qualified Data.List as L
 
 updateEnemyAI :: Float -> World -> Enemy -> Enemy
 updateEnemyAI dt world enemy =
-  -- If the gate is destroyed, ensure enemies progress inside the fort.
+  -- If any gate the enemy targets is destroyed, ensure enemies progress inside the fort.
   let s = enemyAIState enemy
       isAlreadyInsideOrCombat st =
         case st of
           InsideFort -> True
           AttackingTower _ -> True
           AttackingCastle -> True
+          AttackingTrap _ -> True
           Dead -> True
           _ -> False
-      gatePos' = gatePos $ fortGate $ fort world
-      distToGate = Path.distance (enemyPos enemy) gatePos'
-  in if gateDestroyed (fortGate $ fort world) && not (isAlreadyInsideOrCombat s)
+      gates = fortGates (fort world)
+      targetGateIdx = enemyTargetGate enemy
+      targetGate = if targetGateIdx < length gates 
+                   then gates !! targetGateIdx 
+                   else head gates
+  in if gateDestroyed targetGate && not (isAlreadyInsideOrCombat s)
      then 
        -- Gate is destroyed, transition to InsideFort state (movement will handle progression)
        enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
      else
-       case s of
-         MovingToFort -> updateMovingToFort dt world enemy
-         AttackingGate -> updateAttackingGate dt world enemy
-         AttackingWall wid -> updateAttackingWall dt world wid enemy
-         ClimbingWall wid -> updateClimbingWall dt world wid enemy
-         InsideFort -> updateInsideFort dt world enemy
-         AttackingTower tid -> updateAttackingTower dt world tid enemy
-         AttackingCastle -> updateAttackingCastle dt world enemy
-         Dead -> enemy
+       -- Check for revealed traps nearby (enemies attack revealed traps)
+       case findNearbyRevealedTrap enemy world of
+         Just trapId | shouldAttackTrap enemy -> 
+           enemy { enemyAIState = AttackingTrap trapId }
+         _ ->
+           case s of
+             MovingToFort -> updateMovingToFort dt world enemy
+             AttackingGate gateIdx -> updateAttackingGate dt world gateIdx enemy
+             AttackingWall wid -> updateAttackingWall dt world wid enemy
+             ClimbingWall wid -> updateClimbingWall dt world wid enemy
+             InsideFort -> updateInsideFort dt world enemy
+             AttackingTower tid -> updateAttackingTower dt world tid enemy
+             AttackingTrap tid -> updateAttackingTrap dt world tid enemy
+             AttackingCastle -> updateAttackingCastle dt world enemy
+             Dead -> enemy
+
+-- Check if enemy should attack traps (TrapBreaker always does, others sometimes)
+shouldAttackTrap :: Enemy -> Bool
+shouldAttackTrap enemy = 
+  enemyType enemy == TrapBreaker || 
+  (PreferTraps `elem` enemyTargetPrefs enemy)
+
+-- Find a revealed trap nearby that the enemy can attack
+findNearbyRevealedTrap :: Enemy -> World -> Maybe EntityId
+findNearbyRevealedTrap enemy world =
+  let trapList = M.elems (traps world)
+      revealedTraps = filter trapRevealed trapList
+      nearbyTraps = filter (\t -> Path.distance (enemyPos enemy) (trapPos t) < 60) revealedTraps
+  in case nearbyTraps of
+       [] -> Nothing
+       (t:_) -> Just (trapId t)
+
+-- Update enemy attacking a trap
+updateAttackingTrap :: Float -> World -> EntityId -> Enemy -> Enemy
+updateAttackingTrap dt world tid enemy =
+  case M.lookup tid (traps world) of
+    Nothing -> enemy { enemyAIState = MovingToFort }  -- Trap destroyed
+    Just trap ->
+      let dist = Path.distance (enemyPos enemy) (trapPos trap)
+      in if dist > enemyAttackRange enemy + 20
+         then enemy { enemyAIState = MovingToFort }  -- Move closer
+         else enemy  -- In range, stay attacking
 
 -- ============================================================================
 -- Moving to Fort
@@ -44,8 +81,16 @@ updateEnemyAI dt world enemy =
 
 updateMovingToFort :: Float -> World -> Enemy -> Enemy
 updateMovingToFort dt world enemy =
-  let gateLocation = gatePos $ fortGate $ fort world
-      distToGate = Path.distance (enemyPos enemy) gateLocation
+  let targetGateIdx = enemyTargetGate enemy
+      gates = fortGates (fort world)
+      targetGate = if targetGateIdx < length gates 
+                   then gates !! targetGateIdx 
+                   else head gates  -- Fallback to first gate
+      gateLocation = gatePos targetGate
+      -- Add attack offset for random positioning around gate
+      (offX, offY) = enemyAttackOffset enemy
+      attackPos = (fst gateLocation + offX, snd gateLocation + offY)
+      distToGate = Path.distance (enemyPos enemy) attackPos
       prefersWalls = PreferWalls `elem` enemyTargetPrefs enemy
       canClimb = enemyCanClimb enemy
   in 
@@ -61,16 +106,16 @@ updateMovingToFort dt world enemy =
               -- No climb points, attack wall directly if close
               case findNearestWall enemy world of
                 Just (wid, wallDist) | wallDist < 50 -> enemy { enemyAIState = AttackingWall wid }
-                _ -> if distToGate < 200
-                     then if gateDestroyed (fortGate $ fort world)
+                _ -> if distToGate < 100
+                     then if gateDestroyed targetGate
                           then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
-                          else enemy { enemyAIState = AttackingGate }
+                          else enemy { enemyAIState = AttackingGate targetGateIdx }
                      else enemy
-     else if distToGate < 200  -- Large threshold to ensure enemies attack gate
+     else if distToGate < 100  -- Threshold to start attacking
      then
-       if gateDestroyed (fortGate $ fort world)
+       if gateDestroyed targetGate
        then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
-       else enemy { enemyAIState = AttackingGate }
+       else enemy { enemyAIState = AttackingGate targetGateIdx }
      else
        -- Keep moving toward fort if still far away
        case Path.getNextPathPoint enemy world of
@@ -80,9 +125,9 @@ updateMovingToFort dt world enemy =
            else enemy
          Nothing ->
            -- Ran out of waypoints but still not at gate - try to attack anyway
-           if gateDestroyed (fortGate $ fort world)
+           if gateDestroyed targetGate
            then enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
-           else enemy { enemyAIState = AttackingGate }
+           else enemy { enemyAIState = AttackingGate targetGateIdx }
 
 -- Find nearest wall segment for attacking
 findNearestWall :: Enemy -> World -> Maybe (Int, Float)
@@ -103,13 +148,17 @@ findNearestWall enemy world =
 -- Attacking Gate
 -- ============================================================================
 
-updateAttackingGate :: Float -> World -> Enemy -> Enemy
-updateAttackingGate dt world enemy =
-  if gateDestroyed (fortGate $ fort world)
-  then 
-    -- Gate is destroyed, transition to InsideFort (movement will handle progression)
-    enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
-  else enemy
+updateAttackingGate :: Float -> World -> Int -> Enemy -> Enemy
+updateAttackingGate dt world gateIdx enemy =
+  let gates = fortGates (fort world)
+      targetGate = if gateIdx < length gates 
+                   then gates !! gateIdx 
+                   else head gates
+  in if gateDestroyed targetGate
+     then 
+       -- Gate is destroyed, transition to InsideFort (movement will handle progression)
+       enemy { enemyAIState = InsideFort, enemyPathIndex = 0 }
+     else enemy
 
 -- ============================================================================
 -- Attacking Wall

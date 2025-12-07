@@ -455,12 +455,13 @@ renderGateRepairPrompt :: World -> Picture
 renderGateRepairPrompt world =
   let ws = waveState world
       repairPending = wsGateRepairPending ws
-      isGateDestroyed = gateDestroyed (fortGate $ fort world)
+      gates = fortGates (fort world)
+      anyGateDestroyed = any gateDestroyed gates
       panelX = 0
       panelY = -worldHeight/2 + 50  -- Bottom of screen
       panelWidth = 550  -- Wider box to fit text
       panelHeight = 60
-  in if repairPending && isGateDestroyed
+  in if repairPending && anyGateDestroyed
      then
        translate panelX panelY $ pictures
          [ -- White box background
