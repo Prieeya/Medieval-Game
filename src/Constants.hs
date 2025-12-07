@@ -81,14 +81,14 @@ waveCountdownTime :: Float
 waveCountdownTime = 0.0  -- No countdown - enemies spawn immediately
 
 baseEnemyCount :: Int
-baseEnemyCount = 8  -- Base enemy count for level 1
+baseEnemyCount = 10  -- Base enemy count for level 1 (increased)
 
 enemyCountScaling :: Float
-enemyCountScaling = 1.4  -- More enemies each wave
+enemyCountScaling = 1.5  -- More enemies each wave (increased)
 
--- Enemy count multiplier per level (level 1 = 1.0, level 2 = 1.5, level 3 = 2.0)
+-- Enemy count multiplier per level (level 1 = 1.0, level 2 = 1.7, level 3 = 2.4)
 enemyCountPerLevel :: Int -> Float
-enemyCountPerLevel level = 1.0 + fromIntegral (level - 1) * 0.5
+enemyCountPerLevel level = 1.0 + fromIntegral (level - 1) * 0.7
 
 -- Maximum level for victory
 maxLevel :: Int
@@ -112,37 +112,41 @@ spawnYRange = (-350, 350)
 
 -- Base enemy stats (hp, armor, speed, attackRange, damage, attackCooldown)
 -- These are scaled by level using enemyStatsForLevel
+-- HARDER ENEMIES - Increased base stats
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies - Base stats for level 1
-enemyStats GruntRaider = (60, 0, 60, 8, 20, 1.5)       -- Basic enemy
-enemyStats BruteCrusher = (150, 6, 35, 10, 40, 2.5)    -- Tank - slow but tough
-enemyStats Direwolf = (40, 0, 110, 6, 15, 1.0)         -- Fast but fragile
-enemyStats Shieldbearer = (120, 10, 50, 8, 25, 2.0)    -- Armored unit
-enemyStats Pyromancer = (70, 2, 45, 180, 18, 2.0)      -- Ranged caster with fire
-enemyStats Necromancer = (90, 3, 40, 160, 15, 2.5)     -- Summoner
-enemyStats TrapBreaker = (80, 5, 55, 8, 30, 1.5)       -- Anti-trap specialist
-enemyStats WallClimber = (50, 0, 70, 8, 18, 1.2)       -- Climber
+-- Normal Enemies - Base stats for level 1 (HARDER)
+enemyStats GruntRaider = (80, 2, 65, 8, 30, 1.3)       -- Basic enemy - tougher
+enemyStats BruteCrusher = (200, 10, 40, 10, 55, 2.2)   -- Tank - very tough
+enemyStats Direwolf = (55, 0, 120, 6, 22, 0.9)         -- Fast - more HP/damage
+enemyStats Shieldbearer = (160, 15, 55, 8, 35, 1.8)    -- Armored - more armor
+enemyStats Pyromancer = (90, 3, 50, 180, 28, 1.8)      -- Ranged - more damage
+enemyStats Necromancer = (110, 5, 45, 160, 22, 2.2)    -- Summoner - tougher
+enemyStats TrapBreaker = (100, 8, 60, 8, 40, 1.3)      -- Anti-trap - more damage
+enemyStats WallClimber = (70, 2, 80, 8, 28, 1.0)       -- Climber - faster
 -- Short-range melee specialists (unlocked at higher levels)
-enemyStats Berserker = (100, 3, 75, 12, 50, 1.0)       -- High damage, short range
-enemyStats Assassin = (55, 0, 100, 10, 35, 0.8)        -- Fast short-range
-enemyStats BoulderRamCrew = (250, 12, 40, 12, 70, 3.0) -- Siege unit - high HP, slow
--- Bosses - Appear at end of level 3
-enemyStats IronbackMinotaur = (800, 20, 45, 15, 100, 2.0)  -- Tank boss
-enemyStats FireDrake = (1000, 15, 55, 200, 120, 1.8)       -- Fire breath boss
-enemyStats LichKingArcthros = (1200, 25, 40, 180, 100, 2.5) -- Summoner boss
+enemyStats Berserker = (130, 5, 85, 12, 70, 0.8)       -- High damage, short range
+enemyStats Assassin = (75, 0, 115, 10, 50, 0.6)        -- Fast short-range
+enemyStats BoulderRamCrew = (350, 18, 45, 12, 100, 2.5) -- Siege unit - very tough
+-- Bosses - Appear at end of level 3 (MUCH HARDER)
+enemyStats IronbackMinotaur = (1500, 30, 50, 15, 150, 1.8)  -- Tank boss
+enemyStats FireDrake = (1800, 22, 60, 200, 180, 1.5)        -- Fire breath boss
+enemyStats LichKingArcthros = (2200, 35, 45, 180, 140, 2.0) -- Summoner boss
 
 -- Scale enemy stats based on level (enemies get stronger each level)
+-- MORE AGGRESSIVE SCALING
 enemyStatsForLevel :: Int -> UnitType -> (Float, Float, Float, Float, Float, Float)
 enemyStatsForLevel level ut =
   let (hp, armor, spd, range, dmg, cd) = enemyStats ut
-      -- Scale factor increases with level: 1.0, 1.3, 1.6 for levels 1, 2, 3
-      scaleFactor = 1.0 + fromIntegral (level - 1) * 0.3
+      -- Scale factor increases with level: 1.0, 1.5, 2.0 for levels 1, 2, 3
+      scaleFactor = 1.0 + fromIntegral (level - 1) * 0.5
       -- HP and damage scale more aggressively
-      hpScale = 1.0 + fromIntegral (level - 1) * 0.4
-      dmgScale = 1.0 + fromIntegral (level - 1) * 0.35
+      hpScale = 1.0 + fromIntegral (level - 1) * 0.6
+      dmgScale = 1.0 + fromIntegral (level - 1) * 0.5
       -- Speed increases slightly
-      spdScale = 1.0 + fromIntegral (level - 1) * 0.1
-  in (hp * hpScale, armor * scaleFactor, spd * spdScale, range, dmg * dmgScale, cd)
+      spdScale = 1.0 + fromIntegral (level - 1) * 0.15
+      -- Attack cooldown decreases (faster attacks)
+      cdScale = 1.0 - fromIntegral (level - 1) * 0.1
+  in (hp * hpScale, armor * scaleFactor, spd * spdScale, range, dmg * dmgScale, max 0.5 (cd * cdScale))
 
 -- (hp, armor, speed, attackRange, damage, attackCooldown)
 

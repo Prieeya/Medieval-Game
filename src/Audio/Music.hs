@@ -113,47 +113,25 @@ checkAndRestartMusic musicState
   | not (musicInitialized musicState) = return musicState
 #ifdef USE_SDL2_MIXER
   | otherwise = do
-      isPlaying <- Mix.playingMusic
-      isPaused <- Mix.pausedMusic
+      -- Note: Mix.playingMusic can be unreliable with looping music
+      -- Only restart if we haven't played music recently
       case currentTrack musicState of
         Nothing -> return musicState
-        Just track -> do
-          -- If music is not playing and not paused, restart it immediately
-          if not isPlaying && not isPaused
-            then do
-              -- Music stopped unexpectedly, restart it
-              tryRestart track
-            else return musicState  -- Music is playing or paused, don't interfere
-  where
-    tryRestart path = do
-      catch (do
-        -- Stop any existing music first
-        Mix.haltMusic
-        -- Load and play with infinite looping
-        music <- Mix.load path
-        Mix.playMusic Mix.Forever music
-        hPutStrLn stderr "Music restarted (was stopped)"
-        return musicState)
-        handleError
-    handleError :: SomeException -> IO MusicState
-    handleError e = do
-      hPutStrLn stderr $ "Failed to restart music: " ++ show e
-      return musicState
+        Just _ -> return musicState  -- Trust that looping music is playing
 #else
   | otherwise = return musicState
 #endif
 
 -- Update music state based on game time (call this every frame)
--- This handles checking if music needs to be restarted
+-- Since we use Mix.Forever for looping, we don't need to constantly check
 updateMusicState :: MusicState -> Float -> IO MusicState
 updateMusicState musicState dt
   | not (musicEnabled musicState) = return musicState
   | not (musicInitialized musicState) = return musicState
   | otherwise = do
       let newCheckTimer = musicCheckTimer musicState + dt
-      -- Check every 0.5 seconds if music is still playing
-      -- Very frequent checks to ensure continuous playback
-      if newCheckTimer >= 0.5
+      -- Check every 30 seconds (just in case music actually stopped)
+      if newCheckTimer >= 30.0
         then do
           newState <- checkAndRestartMusic musicState
           return newState { musicCheckTimer = 0 }
