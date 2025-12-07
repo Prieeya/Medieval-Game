@@ -81,10 +81,18 @@ waveCountdownTime :: Float
 waveCountdownTime = 0.0  -- No countdown - enemies spawn immediately
 
 baseEnemyCount :: Int
-baseEnemyCount = 6  -- Reduced enemy count for balanced gameplay
+baseEnemyCount = 8  -- Base enemy count for level 1
 
 enemyCountScaling :: Float
-enemyCountScaling = 1.2  -- Slower scaling for more manageable waves
+enemyCountScaling = 1.4  -- More enemies each wave
+
+-- Enemy count multiplier per level (level 1 = 1.0, level 2 = 1.5, level 3 = 2.0)
+enemyCountPerLevel :: Int -> Float
+enemyCountPerLevel level = 1.0 + fromIntegral (level - 1) * 0.5
+
+-- Maximum level for victory
+maxLevel :: Int
+maxLevel = 3  -- Victory after completing level 3
 
 -- ============================================================================
 -- Spawn Zones
@@ -102,26 +110,39 @@ spawnYRange = (-350, 350)
 -- Enemy Stats
 -- ============================================================================
 
+-- Base enemy stats (hp, armor, speed, attackRange, damage, attackCooldown)
+-- These are scaled by level using enemyStatsForLevel
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies - Balanced for fun gameplay
--- (hp, armor, speed, attackRange, damage, attackCooldown)
-enemyStats GruntRaider = (50, 0, 65, 8, 25, 1.5)       -- Basic enemy - low stats
-enemyStats BruteCrusher = (120, 5, 40, 10, 45, 2.5)    -- Tank - slow but tough
-enemyStats Direwolf = (35, 0, 120, 6, 18, 1.0)         -- Fast but fragile
-enemyStats Shieldbearer = (100, 8, 55, 8, 30, 2.0)     -- Armored unit
-enemyStats Pyromancer = (60, 2, 50, 180, 15, 2.0)      -- Ranged caster - low damage
-enemyStats Necromancer = (80, 3, 45, 160, 18, 2.5)     -- Summoner
-enemyStats TrapBreaker = (70, 4, 60, 8, 35, 1.5)       -- Anti-trap specialist
-enemyStats WallClimber = (45, 0, 75, 8, 22, 1.2)       -- Climber - fast but weak
--- Short-range melee specialists
-enemyStats Berserker = (90, 2, 80, 12, 60, 1.0)        -- High damage, short range
-enemyStats Assassin = (50, 0, 110, 10, 40, 0.8)        -- Fast short-range
-enemyStats BoulderRamCrew = (200, 10, 45, 12, 80, 3.0) -- Siege unit - high HP, slow
--- Bosses (Every 3 Levels) - Made much harder
--- Bosses - Challenging but beatable
-enemyStats IronbackMinotaur = (600, 15, 50, 15, 80, 2.5)   -- Tank boss - tough but manageable
-enemyStats FireDrake = (750, 12, 60, 200, 100, 2.0)        -- Ranged fire boss
-enemyStats LichKingArcthros = (900, 18, 45, 180, 90, 3.0)  -- Summoner boss
+-- Normal Enemies - Base stats for level 1
+enemyStats GruntRaider = (60, 0, 60, 8, 20, 1.5)       -- Basic enemy
+enemyStats BruteCrusher = (150, 6, 35, 10, 40, 2.5)    -- Tank - slow but tough
+enemyStats Direwolf = (40, 0, 110, 6, 15, 1.0)         -- Fast but fragile
+enemyStats Shieldbearer = (120, 10, 50, 8, 25, 2.0)    -- Armored unit
+enemyStats Pyromancer = (70, 2, 45, 180, 18, 2.0)      -- Ranged caster with fire
+enemyStats Necromancer = (90, 3, 40, 160, 15, 2.5)     -- Summoner
+enemyStats TrapBreaker = (80, 5, 55, 8, 30, 1.5)       -- Anti-trap specialist
+enemyStats WallClimber = (50, 0, 70, 8, 18, 1.2)       -- Climber
+-- Short-range melee specialists (unlocked at higher levels)
+enemyStats Berserker = (100, 3, 75, 12, 50, 1.0)       -- High damage, short range
+enemyStats Assassin = (55, 0, 100, 10, 35, 0.8)        -- Fast short-range
+enemyStats BoulderRamCrew = (250, 12, 40, 12, 70, 3.0) -- Siege unit - high HP, slow
+-- Bosses - Appear at end of level 3
+enemyStats IronbackMinotaur = (800, 20, 45, 15, 100, 2.0)  -- Tank boss
+enemyStats FireDrake = (1000, 15, 55, 200, 120, 1.8)       -- Fire breath boss
+enemyStats LichKingArcthros = (1200, 25, 40, 180, 100, 2.5) -- Summoner boss
+
+-- Scale enemy stats based on level (enemies get stronger each level)
+enemyStatsForLevel :: Int -> UnitType -> (Float, Float, Float, Float, Float, Float)
+enemyStatsForLevel level ut =
+  let (hp, armor, spd, range, dmg, cd) = enemyStats ut
+      -- Scale factor increases with level: 1.0, 1.3, 1.6 for levels 1, 2, 3
+      scaleFactor = 1.0 + fromIntegral (level - 1) * 0.3
+      -- HP and damage scale more aggressively
+      hpScale = 1.0 + fromIntegral (level - 1) * 0.4
+      dmgScale = 1.0 + fromIntegral (level - 1) * 0.35
+      -- Speed increases slightly
+      spdScale = 1.0 + fromIntegral (level - 1) * 0.1
+  in (hp * hpScale, armor * scaleFactor, spd * spdScale, range, dmg * dmgScale, cd)
 
 -- (hp, armor, speed, attackRange, damage, attackCooldown)
 
@@ -157,8 +178,13 @@ towerCost BallistaTower = 220   -- Armor-Piercing Tower
 towerCost PoisonTower = 90      -- Debuff Tower
 towerCost BombardTower = 250    -- Cannon Tower
 
+-- Tower upgrade cost: increases with level
 towerUpgradeCost :: TowerType -> Int -> Int
-towerUpgradeCost tt lvl = towerCost tt * lvl
+towerUpgradeCost tt lvl = (towerCost tt * lvl) `div` 2 + 50
+
+-- Max tower level
+maxTowerLevel :: Int
+maxTowerLevel = 3
 
 -- Tower stats: (range, damage, fireRate)
 towerStats :: TowerType -> (Float, Float, Float)
@@ -170,6 +196,37 @@ towerStats TeslaTower = (320, 55, 1.0)      -- Medium range, chain lightning
 towerStats BallistaTower = (380, 140, 1.4)  -- Long range, piercing, very high damage
 towerStats PoisonTower = (290, 25, 0.8)     -- Medium range, debuff
 towerStats BombardTower = (380, 160, 2.2)   -- Long range, AoE burst, massive damage
+
+-- Tower stats scaled by level (range, damage, fireRate)
+towerStatsForLevel :: TowerType -> Int -> (Float, Float, Float)
+towerStatsForLevel tt lvl =
+  let (range, dmg, fr) = towerStats tt
+      -- Level 1: base, Level 2: +25%, Level 3: +50%
+      scale = 1.0 + fromIntegral (lvl - 1) * 0.25
+      -- Fire rate improves (lower is faster)
+      frScale = 1.0 - fromIntegral (lvl - 1) * 0.1
+  in (range * scale, dmg * scale, fr * frScale)
+
+-- Tower HP scaled by level
+towerMaxHPForLevel :: TowerType -> Int -> Float
+towerMaxHPForLevel tt lvl = towerMaxHP tt * (1.0 + fromIntegral (lvl - 1) * 0.3)
+
+-- Tower upgrade bonuses description
+towerUpgradeBonus :: Int -> String
+towerUpgradeBonus 2 = "+25% Range/Damage, +10% Fire Rate, +30% HP"
+towerUpgradeBonus 3 = "+50% Range/Damage, +20% Fire Rate, +60% HP, Special Ability"
+towerUpgradeBonus _ = ""
+
+-- Level 3 tower special abilities
+towerLevel3Ability :: TowerType -> String
+towerLevel3Ability ArrowTower = "Multi-shot (hits 2 targets)"
+towerLevel3Ability CatapultTower = "Larger AoE radius"
+towerLevel3Ability CrossbowTower = "Armor piercing"
+towerLevel3Ability FireTower = "Fire spreads to nearby enemies"
+towerLevel3Ability TeslaTower = "Chain to 3 enemies"
+towerLevel3Ability BallistaTower = "Knockback effect"
+towerLevel3Ability PoisonTower = "Poison lasts longer"
+towerLevel3Ability BombardTower = "Stun on hit"
 
 -- (range, damage, fireRate)
 
@@ -194,24 +251,71 @@ trapCost FirePitTrap = 45      -- Continuous AoE
 trapCost MagicSnareTrap = 50    -- Immobilize enemy
 trapCost ExplosiveBarrel = 80  -- Player-triggered burst
 
-trapDamage :: TrapType -> Float
-trapDamage SpikeTrap = 40       -- Instant damage
-trapDamage FreezeTrap = 0      -- No damage, just freeze/slow
-trapDamage FirePitTrap = 25    -- Per second damage
-trapDamage MagicSnareTrap = 0   -- No damage, just root
-trapDamage ExplosiveBarrel = 200  -- AoE burst
+-- Trap upgrade cost
+trapUpgradeCost :: TrapType -> Int -> Int
+trapUpgradeCost tt lvl = (trapCost tt * lvl) `div` 2 + 25
+
+-- Max trap level
+maxTrapLevel :: Int
+maxTrapLevel = 3
+
+-- Base trap damage
+trapBaseDamage :: TrapType -> Float
+trapBaseDamage SpikeTrap = 40       -- Instant damage
+trapBaseDamage FreezeTrap = 5       -- Small damage + freeze/slow
+trapBaseDamage FirePitTrap = 25     -- Per second damage
+trapBaseDamage MagicSnareTrap = 10  -- Small damage + root
+trapBaseDamage ExplosiveBarrel = 200  -- AoE burst
+
+-- Trap damage scaled by level
+trapDamageForLevel :: TrapType -> Int -> Float
+trapDamageForLevel tt lvl = 
+  let base = trapBaseDamage tt
+      -- Level 1: base, Level 2: +40%, Level 3: +80%
+      scale = 1.0 + fromIntegral (lvl - 1) * 0.4
+  in base * scale
 
 trapSlowFactor :: TrapType -> Float
 trapSlowFactor FreezeTrap = 0.4  -- -60% slow
 trapSlowFactor _ = 1.0
 
--- Trap HP (how much damage they can take before being destroyed)
+-- Trap slow factor scaled by level (lower = slower)
+trapSlowFactorForLevel :: TrapType -> Int -> Float
+trapSlowFactorForLevel tt lvl =
+  let base = trapSlowFactor tt
+      -- Each level reduces slow factor by 10% (more slow)
+      reduction = fromIntegral (lvl - 1) * 0.1
+  in max 0.2 (base - reduction)
+
+-- Base trap HP (how much damage they can take before being destroyed)
+trapBaseMaxHP :: TrapType -> Float
+trapBaseMaxHP SpikeTrap = 30        -- Fragile
+trapBaseMaxHP FreezeTrap = 50       -- Moderate
+trapBaseMaxHP FirePitTrap = 80      -- Sturdy
+trapBaseMaxHP MagicSnareTrap = 40   -- Moderate
+trapBaseMaxHP ExplosiveBarrel = 20  -- Very fragile (explodes easily)
+
+-- Trap HP scaled by level
+trapMaxHPForLevel :: TrapType -> Int -> Float
+trapMaxHPForLevel tt lvl = trapBaseMaxHP tt * (1.0 + fromIntegral (lvl - 1) * 0.5)
+
+-- Trap upgrade bonuses description
+trapUpgradeBonus :: Int -> String
+trapUpgradeBonus 2 = "+40% Damage, +50% HP, Improved Effect"
+trapUpgradeBonus 3 = "+80% Damage, +100% HP, Special Ability"
+trapUpgradeBonus _ = ""
+
+-- Level 3 trap special abilities
+trapLevel3Ability :: TrapType -> String
+trapLevel3Ability SpikeTrap = "Bleeding (DoT for 3s)"
+trapLevel3Ability FreezeTrap = "Complete freeze for 2s"
+trapLevel3Ability FirePitTrap = "Larger radius, fire spreads"
+trapLevel3Ability MagicSnareTrap = "Drains enemy HP"
+trapLevel3Ability ExplosiveBarrel = "Chain explosion"
+
+-- For backwards compatibility
 trapMaxHP :: TrapType -> Float
-trapMaxHP SpikeTrap = 30        -- Fragile
-trapMaxHP FreezeTrap = 50       -- Moderate
-trapMaxHP FirePitTrap = 80      -- Sturdy
-trapMaxHP MagicSnareTrap = 40   -- Moderate
-trapMaxHP ExplosiveBarrel = 20  -- Very fragile (explodes easily)
+trapMaxHP = trapBaseMaxHP
 
 -- ============================================================================
 -- Ability Stats
@@ -234,7 +338,7 @@ abilityDurations TimeSlow = 8.0
 -- ============================================================================
 
 gateMaxHP :: Float
-gateMaxHP = 5000  -- Increased gate HP
+gateMaxHP = 3000  -- Base gate HP
 
 gateUpgradeBaseCost :: Int
 gateUpgradeBaseCost = 300  -- Base cost for upgrading gate

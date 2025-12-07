@@ -160,6 +160,7 @@ data Trap = Trap
   { trapId :: EntityId
   , trapType :: TrapType
   , trapPos :: Vec2
+  , trapLevel :: Int                 -- Upgrade level (1-3)
   , trapTriggered :: Bool
   , trapActiveTime :: Float
   , trapAffectedEnemies :: S.Set EntityId
@@ -167,6 +168,7 @@ data Trap = Trap
   , trapHP :: Float                  -- HP for trap (can be destroyed by enemies)
   , trapMaxHP :: Float               -- Max HP
   , trapRevealed :: Bool             -- Whether trap is visible to enemies
+  , trapDamage :: Float              -- Damage dealt by trap (scales with level)
   } deriving (Show, Generic)
 
 -- ============================================================================
