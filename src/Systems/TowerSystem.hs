@@ -62,7 +62,7 @@ prioritizeArcherTargets targets =
                                     _ -> False) targets
       -- Fourth priority: enemies attacking gate
       attackingGate = filter (\e -> case enemyAIState e of
-                                    AttackingGate -> True
+                                    AttackingGate _ -> True
                                     _ -> False) targets
       -- Lowest priority: enemies still moving
       others = filter (\e -> case enemyAIState e of

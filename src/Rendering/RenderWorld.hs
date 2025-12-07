@@ -126,59 +126,60 @@ renderBackground =
           ) [0..tilesX]
         ) [0..tilesY]
       
-      -- Path from spawn area to fort gate using path tiles
-      pathTiles = pictures $ concatMap (\i ->
-        let t = fromIntegral i / 30.0
-            startX = leftSpawnX + 100
-            startY = 0
-            endX = gateX - 50
-            endY = gateY
+      -- Path to BOTTOM gate (gate 2) - from bottom-left
+      bottomPathTiles = pictures $ concatMap (\i ->
+        let t = fromIntegral i / 35.0
+            startX = leftSpawnX + 50
+            startY = -250
+            endX = gateX - 30
+            endY = Constants.gate2Y
             midX = (startX + endX) / 2
-            midY = startY + 100
+            midY = (startY + endY) / 2
             x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
             y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
             -- Snap to tile grid
             tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
             tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
         in [renderPathTile tileX tileY]
-        ) [0..30]
+        ) [0..35]
       
-      -- Center and right paths
+      -- Path to CENTER gate (gate 1) - from center-left
       centerPathTiles = pictures $ concatMap (\i ->
-        let t = fromIntegral i / 20.0
+        let t = fromIntegral i / 35.0
             startX = centerSpawnX + 50
             startY = 0
             endX = gateX - 30
-            endY = gateY - 50
+            endY = Constants.gate1Y
             midX = (startX + endX) / 2
-            midY = startY - 80
+            midY = startY
             x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
             y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
             tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
             tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
         in [renderPathTile tileX tileY]
-        ) [0..20]
+        ) [0..35]
       
-      rightPathTiles = pictures $ concatMap (\i ->
-        let t = fromIntegral i / 20.0
+      -- Path to TOP gate (gate 0) - from top-left
+      topPathTiles = pictures $ concatMap (\i ->
+        let t = fromIntegral i / 35.0
             startX = rightSpawnX + 50
-            startY = 0
+            startY = 250
             endX = gateX - 30
-            endY = gateY + 50
+            endY = Constants.gate0Y
             midX = (startX + endX) / 2
-            midY = startY + 80
+            midY = (startY + endY) / 2
             x = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX
             y = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY
             tileX = (fromIntegral (floor (x / tileSize))) * tileSize + tileSize/2
             tileY = (fromIntegral (floor (y / tileSize))) * tileSize + tileSize/2
         in [renderPathTile tileX tileY]
-        ) [0..20]
+        ) [0..35]
       
   in pictures
     [ grassTiles
-    , pathTiles
+    , bottomPathTiles
     , centerPathTiles
-    , rightPathTiles
+    , topPathTiles
     ]
 
 -- ============================================================================

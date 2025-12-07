@@ -81,10 +81,10 @@ waveCountdownTime :: Float
 waveCountdownTime = 0.0  -- No countdown - enemies spawn immediately
 
 baseEnemyCount :: Int
-baseEnemyCount = 10
+baseEnemyCount = 6  -- Reduced enemy count for balanced gameplay
 
 enemyCountScaling :: Float
-enemyCountScaling = 1.5
+enemyCountScaling = 1.2  -- Slower scaling for more manageable waves
 
 -- ============================================================================
 -- Spawn Zones
@@ -92,8 +92,8 @@ enemyCountScaling = 1.5
 
 leftSpawnX, centerSpawnX, rightSpawnX :: Float
 leftSpawnX = -700
-centerSpawnX = -400
-rightSpawnX = -100
+centerSpawnX = -550   -- Moved further left so enemies have longer path to center gate
+rightSpawnX = -700    -- Same X as left, but different Y
 
 spawnYRange :: (Float, Float)
 spawnYRange = (-350, 350)
@@ -103,23 +103,25 @@ spawnYRange = (-350, 350)
 -- ============================================================================
 
 enemyStats :: UnitType -> (Float, Float, Float, Float, Float, Float)
--- Normal Enemies - Made harder
-enemyStats GruntRaider = (90, 2, 75, 8, 55, 1.3)      -- Increased HP 60->90, added armor, more damage
-enemyStats BruteCrusher = (220, 8, 45, 10, 95, 2.2)    -- Increased HP 150->220, more armor, more damage
-enemyStats Direwolf = (60, 1, 150, 6, 35, 0.9)        -- Increased HP 40->60, faster, more damage
-enemyStats Shieldbearer = (180, 12, 65, 8, 55, 1.8)     -- Increased HP 120->180, more armor, more damage
-enemyStats Pyromancer = (120, 4, 60, 200, 25, 1.8)      -- Increased HP 80->120, more damage
-enemyStats Necromancer = (150, 5, 55, 180, 30, 2.2)    -- Increased HP 100->150, more damage
-enemyStats TrapBreaker = (130, 6, 70, 8, 65, 1.3)       -- Increased HP 90->130, more damage
-enemyStats WallClimber = (70, 1, 85, 8, 40, 0.9)       -- Increased HP 50->70, faster, more damage
+-- Normal Enemies - Balanced for fun gameplay
+-- (hp, armor, speed, attackRange, damage, attackCooldown)
+enemyStats GruntRaider = (50, 0, 65, 8, 25, 1.5)       -- Basic enemy - low stats
+enemyStats BruteCrusher = (120, 5, 40, 10, 45, 2.5)    -- Tank - slow but tough
+enemyStats Direwolf = (35, 0, 120, 6, 18, 1.0)         -- Fast but fragile
+enemyStats Shieldbearer = (100, 8, 55, 8, 30, 2.0)     -- Armored unit
+enemyStats Pyromancer = (60, 2, 50, 180, 15, 2.0)      -- Ranged caster - low damage
+enemyStats Necromancer = (80, 3, 45, 160, 18, 2.5)     -- Summoner
+enemyStats TrapBreaker = (70, 4, 60, 8, 35, 1.5)       -- Anti-trap specialist
+enemyStats WallClimber = (45, 0, 75, 8, 22, 1.2)       -- Climber - fast but weak
 -- Short-range melee specialists
-enemyStats Berserker = (160, 3, 90, 12, 120, 0.8)      -- High damage, short range, fast attack, can climb walls
-enemyStats Assassin = (80, 0, 130, 10, 80, 0.6)        -- Low HP, very fast, short range, targets towers inside fort
-enemyStats BoulderRamCrew = (350, 15, 55, 12, 180, 2.8) -- Increased HP 250->350, more armor, more damage
+enemyStats Berserker = (90, 2, 80, 12, 60, 1.0)        -- High damage, short range
+enemyStats Assassin = (50, 0, 110, 10, 40, 0.8)        -- Fast short-range
+enemyStats BoulderRamCrew = (200, 10, 45, 12, 80, 3.0) -- Siege unit - high HP, slow
 -- Bosses (Every 3 Levels) - Made much harder
-enemyStats IronbackMinotaur = (1200, 25, 60, 15, 150, 2.0)  -- Tank boss - doubled HP, more armor, faster attacks
-enemyStats FireDrake = (1500, 20, 70, 250, 200, 1.8)       -- Ranged fire AoE boss - doubled HP, more damage
-enemyStats LichKingArcthros = (1800, 30, 55, 220, 180, 2.5) -- Summoner + debuffer - tripled HP, high armor
+-- Bosses - Challenging but beatable
+enemyStats IronbackMinotaur = (600, 15, 50, 15, 80, 2.5)   -- Tank boss - tough but manageable
+enemyStats FireDrake = (750, 12, 60, 200, 100, 2.0)        -- Ranged fire boss
+enemyStats LichKingArcthros = (900, 18, 45, 180, 90, 3.0)  -- Summoner boss
 
 -- (hp, armor, speed, attackRange, damage, attackCooldown)
 
@@ -158,15 +160,16 @@ towerCost BombardTower = 250    -- Cannon Tower
 towerUpgradeCost :: TowerType -> Int -> Int
 towerUpgradeCost tt lvl = towerCost tt * lvl
 
+-- Tower stats: (range, damage, fireRate)
 towerStats :: TowerType -> (Float, Float, Float)
-towerStats ArrowTower = (260, 30, 0.6)      -- Medium range, fast firing
-towerStats CatapultTower = (380, 70, 1.8)     -- Long range, AoE
-towerStats CrossbowTower = (400, 90, 1.2)    -- Very long range, precision
-towerStats FireTower = (280, 20, 1.0)        -- Medium range, DoT
-towerStats TeslaTower = (300, 40, 1.2)       -- Medium range, chain lightning
-towerStats BallistaTower = (350, 110, 1.6)   -- Long range, piercing
-towerStats PoisonTower = (270, 15, 1.0)       -- Medium range, debuff
-towerStats BombardTower = (360, 130, 2.5)     -- Long range, AoE burst
+towerStats ArrowTower = (280, 40, 0.5)      -- Medium range, fast firing, good damage
+towerStats CatapultTower = (400, 90, 1.5)   -- Long range, AoE
+towerStats CrossbowTower = (420, 120, 1.0)  -- Very long range, precision, high damage
+towerStats FireTower = (300, 30, 0.8)       -- Medium range, DoT
+towerStats TeslaTower = (320, 55, 1.0)      -- Medium range, chain lightning
+towerStats BallistaTower = (380, 140, 1.4)  -- Long range, piercing, very high damage
+towerStats PoisonTower = (290, 25, 0.8)     -- Medium range, debuff
+towerStats BombardTower = (380, 160, 2.2)   -- Long range, AoE burst, massive damage
 
 -- (range, damage, fireRate)
 
@@ -231,13 +234,13 @@ abilityDurations TimeSlow = 8.0
 -- ============================================================================
 
 gateMaxHP :: Float
-gateMaxHP = 3000
+gateMaxHP = 5000  -- Increased gate HP
 
 gateUpgradeBaseCost :: Int
 gateUpgradeBaseCost = 300  -- Base cost for upgrading gate
 
 gateHPPerLevel :: Float
-gateHPPerLevel = 500  -- HP increase per level
+gateHPPerLevel = 1000  -- HP increase per level (more significant upgrades)
 
 -- Base repair cost per 100 HP of damage
 gateRepairCostPerHP :: Float
@@ -262,7 +265,7 @@ castleMaxHP = 2000
 -- ============================================================================
 
 startingGold :: Int
-startingGold = 500
+startingGold = 750  -- More starting gold for building initial defenses
 
 
 baseWaveGold :: Int

@@ -152,31 +152,36 @@ initialPaths = M.fromList
   , (RightSide, rightPath)
   ]
 
--- Path to bottom gate (gate 2)
+-- Path to bottom gate (gate 2) - enemies from bottom-left
 leftPath :: [Vec2]
 leftPath =
-  [ (leftSpawnX, -200)
-  , (-500, -180)
-  , (-300, Constants.gate2Y)
-  , (-100, Constants.gate2Y)
+  [ (leftSpawnX, -250)
+  , (-500, -220)
+  , (-350, Constants.gate2Y)
+  , (-200, Constants.gate2Y)
+  , (-50, Constants.gate2Y)
   , (gateX, Constants.gate2Y)  -- Bottom gate
   ]
 
--- Path to center gate (gate 1)
+-- Path to center gate (gate 1) - enemies from center-left
 centerPath :: [Vec2]
 centerPath =
   [ (centerSpawnX, 0)
-  , (-300, 0)
-  , (-150, Constants.gate1Y)
+  , (-450, 0)
+  , (-350, Constants.gate1Y)
+  , (-200, Constants.gate1Y)
+  , (-50, Constants.gate1Y)
   , (gateX, Constants.gate1Y)  -- Center gate
   ]
 
--- Path to top gate (gate 0)
+-- Path to top gate (gate 0) - enemies from top-left
 rightPath :: [Vec2]
 rightPath =
-  [ (rightSpawnX, 200)
-  , (-200, 180)
-  , (-100, Constants.gate0Y)
+  [ (rightSpawnX, 250)
+  , (-500, 220)
+  , (-350, Constants.gate0Y)
+  , (-200, Constants.gate0Y)
+  , (-50, Constants.gate0Y)
   , (gateX, Constants.gate0Y)  -- Top gate
   ]
 
