@@ -190,7 +190,8 @@ triggerTrapOnEnemy (world, affected) enemy trap =
         
         -- Trap Breaker Logic: Disarms traps without taking damage
         isTrapBreaker = enemyType enemy == TrapBreaker
-        damage = if isTrapBreaker then 0 else trapDamage (trapType trap)
+        -- Use trap's stored damage (which scales with level)
+        damage = if isTrapBreaker then 0 else Types.trapDamage trap
         
         enemy' = TrapSystem.applyTrapEffects trap' $ applyDamageToEnemy damage enemy
         

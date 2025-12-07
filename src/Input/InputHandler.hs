@@ -210,14 +210,17 @@ upgradeGate world =
   let gates = fortGates (fort world)
       -- Use the first gate's level as the overall gate level
       lvl = if null gates then 1 else gateLevel (head gates)
-      cost = Constants.gateUpgradeBaseCost + lvl * 100
+      cost = Constants.gateUpgradeCost lvl
       resources' = resources world
-  in if resGold resources' >= cost
+  in if lvl >= Constants.maxGateLevel
+     then world { gameMessage = Just ("Gates already max level!", 2.0) }
+     else if resGold resources' >= cost
      then
-       let newMaxHP = Constants.gateMaxHP + fromIntegral lvl * Constants.gateHPPerLevel
+       let newLevel = lvl + 1
+           newMaxHP = Constants.gateMaxHP + fromIntegral lvl * Constants.gateHPPerLevel
            -- Upgrade all gates
            gates' = map (\g -> g 
-             { gateLevel = lvl + 1
+             { gateLevel = newLevel
              , gateMaxHP = newMaxHP
              , gateHP = newMaxHP -- Max heal
              , gateDestroyed = False -- Repair if destroyed
@@ -226,12 +229,12 @@ upgradeGate world =
            fort' = (fort world) { fortGates = gates' }
            -- Sound and message
            events = SoundUpgrade : soundEvents world
-           message = Just ("All Gates Upgraded to Level " ++ show (lvl + 1) ++ "! (-" ++ show cost ++ "g)", 3.0)
-       in world { fort = fort', resources = newRes, soundEvents = events, gameMessage = message }
+           bonusDesc = Constants.gateUpgradeBonus newLevel
+           msg = "Gates Upgraded to Lv" ++ show newLevel ++ "! " ++ bonusDesc ++ " (-" ++ show cost ++ "g)"
+       in world { fort = fort', resources = newRes, soundEvents = events, gameMessage = Just (msg, 3.0) }
      else 
-       let message = Just ("Not enough gold! Need " ++ show cost ++ "g", 2.0)
-           events = SoundError : soundEvents world
-       in world { gameMessage = message, soundEvents = events }
+       let events = SoundError : soundEvents world
+       in world { gameMessage = Just ("Need " ++ show cost ++ "g to upgrade gates", 2.0), soundEvents = events }
 
 -- ============================================================================
 -- Building & Placing
@@ -269,11 +272,14 @@ placeTrap trapType pos world
   | resGold (resources world) < trapCost trapType = world
   | otherwise =
       let initialAnim = AnimationState { animType = AnimIdle, animFrame = 0, animTime = 0 }
-          maxHP = Constants.trapMaxHP trapType
+          lvl = 1  -- New traps start at level 1
+          maxHP = Constants.trapMaxHPForLevel trapType lvl
+          dmg = Constants.trapDamageForLevel trapType lvl
           trap = Trap
             { trapId = nextEntityId world
             , trapType = trapType
             , trapPos = pos
+            , trapLevel = lvl
             , trapTriggered = False
             , trapActiveTime = 0
             , trapAffectedEnemies = mempty
@@ -281,6 +287,7 @@ placeTrap trapType pos world
             , trapHP = maxHP
             , trapMaxHP = maxHP
             , trapRevealed = False  -- Traps start hidden
+            , trapDamage = dmg
             }
           traps' = M.insert (nextEntityId world) trap (traps world)
           resources' = ResourceSystem.spendGold (trapCost trapType) (resources world)
@@ -298,52 +305,83 @@ isAdvancedTrap _ = False
 
 upgradeTowerAt :: Vec2 -> World -> World
 upgradeTowerAt pos world =
-  let upUnlock = upgradeUnlock world
-      level = wsLevel (waveState world)
-  in case findTowerAt pos world of
-    Nothing -> world
-    Just tower ->
-      if level < upgradeLevel upUnlock && not (upgradeUnlocked upUnlock)
-      then world  -- Upgrades not unlocked yet
-      else if upgradeUnlocked upUnlock && resGold (resources world) >= upgradeCost upUnlock
-           then
-             let tower' = upgradeTower tower
-                 towers' = M.insert (towerId tower) tower' (towers world)
-                 resources' = ResourceSystem.spendGold (upgradeCost upUnlock) (resources world)
-             in world { towers = towers', resources = resources' }
-           else
-             -- Unlock upgrades if conditions met
-             let upUnlock' = upUnlock { upgradeUnlocked = True }
-                 resources' = ResourceSystem.spendGold (upgradeCost upUnlock) (resources world)
-             in if level >= upgradeLevel upUnlock && resGold (resources world) >= upgradeCost upUnlock && not (upgradeUnlocked upUnlock)
-                then 
-                  let tower' = upgradeTower tower
-                      towers' = M.insert (towerId tower) tower' (towers world)
-                  in world { towers = towers', resources = resources', upgradeUnlock = upUnlock' }
-                else world
+  -- First check for tower, then check for trap
+  case findTowerAt pos world of
+    Just tower -> upgradeTowerIfPossible tower world
+    Nothing -> 
+      case findTrapAt pos world of
+        Just trap -> upgradeTrapIfPossible trap world
+        Nothing -> world
+
+upgradeTowerIfPossible :: Tower -> World -> World
+upgradeTowerIfPossible tower world =
+  let currentLevel = towerLevel tower
+      cost = Constants.towerUpgradeCost (towerType tower) currentLevel
+  in if currentLevel >= Constants.maxTowerLevel
+     then world { gameMessage = Just ("Tower already max level!", 2.0) }
+     else if resGold (resources world) < cost
+     then world { gameMessage = Just ("Need " ++ show cost ++ "g to upgrade", 2.0), soundEvents = SoundError : soundEvents world }
+     else
+       let tower' = upgradeTower tower
+           towers' = M.insert (towerId tower) tower' (towers world)
+           resources' = ResourceSystem.spendGold cost (resources world)
+           msg = "Tower upgraded to Lv" ++ show (currentLevel + 1) ++ "! (-" ++ show cost ++ "g)"
+       in world { towers = towers', resources = resources', gameMessage = Just (msg, 3.0), soundEvents = SoundUpgrade : soundEvents world }
+
+upgradeTrapIfPossible :: Trap -> World -> World
+upgradeTrapIfPossible trap world =
+  let currentLevel = trapLevel trap
+      cost = Constants.trapUpgradeCost (trapType trap) currentLevel
+  in if currentLevel >= Constants.maxTrapLevel
+     then world { gameMessage = Just ("Trap already max level!", 2.0) }
+     else if resGold (resources world) < cost
+     then world { gameMessage = Just ("Need " ++ show cost ++ "g to upgrade", 2.0), soundEvents = SoundError : soundEvents world }
+     else
+       let trap' = upgradeTrap trap
+           traps' = M.insert (trapId trap) trap' (traps world)
+           resources' = ResourceSystem.spendGold cost (resources world)
+           msg = "Trap upgraded to Lv" ++ show (currentLevel + 1) ++ "! (-" ++ show cost ++ "g)"
+       in world { traps = traps', resources = resources', gameMessage = Just (msg, 3.0), soundEvents = SoundUpgrade : soundEvents world }
 
 upgradeTower :: Tower -> Tower
 upgradeTower tower =
-  let lvl = towerLevel tower + 1
-      mult = 1.0 + fromIntegral lvl * 0.3
-      hpMult = 1.0 + fromIntegral lvl * 0.2  -- HP increases by 20% per level
-      currentMaxHP = towerMaxHP tower
-      newMaxHP = currentMaxHP * hpMult
-      -- Restore HP to new max when upgraded (heal the tower)
-      newHP = newMaxHP
+  let newLevel = towerLevel tower + 1
+      tt = towerType tower
+      (newRange, newDmg, newFR) = Constants.towerStatsForLevel tt newLevel
+      newMaxHP = Constants.towerMaxHPForLevel tt newLevel
   in tower
-    { towerLevel = lvl
-    , towerRange = towerRange tower * (1.0 + fromIntegral lvl * 0.1)
-    , towerDamage = towerDamage tower * mult
-    , towerFireRate = towerFireRate tower * 0.95
-    , towerHP = newHP
+    { towerLevel = newLevel
+    , towerRange = newRange
+    , towerDamage = newDmg
+    , towerFireRate = newFR
+    , towerHP = newMaxHP  -- Full heal on upgrade
     , towerMaxHP = newMaxHP
+    }
+
+upgradeTrap :: Trap -> Trap
+upgradeTrap trap =
+  let newLevel = trapLevel trap + 1
+      tt = trapType trap
+      newMaxHP = Constants.trapMaxHPForLevel tt newLevel
+      newDmg = Constants.trapDamageForLevel tt newLevel
+  in trap
+    { trapLevel = newLevel
+    , trapHP = newMaxHP  -- Full heal on upgrade
+    , trapMaxHP = newMaxHP
+    , trapDamage = newDmg
     }
 
 findTowerAt :: Vec2 -> World -> Maybe Tower
 findTowerAt pos world =
   let nearbyTowers = M.filter (\t -> distance (towerPos t) pos < 30) (towers world)
   in case M.elems nearbyTowers of
+    [] -> Nothing
+    (t:_) -> Just t
+
+findTrapAt :: Vec2 -> World -> Maybe Trap
+findTrapAt pos world =
+  let nearbyTraps = M.filter (\t -> distance (trapPos t) pos < 30) (traps world)
+  in case M.elems nearbyTraps of
     [] -> Nothing
     (t:_) -> Just t
 

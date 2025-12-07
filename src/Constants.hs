@@ -1,6 +1,6 @@
 module Constants where
 
-import Types
+import Types hiding (towerMaxHP, trapMaxHP)
 
 -- ============================================================================
 -- Display Constants

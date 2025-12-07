@@ -581,8 +581,8 @@ renderHelpMenu :: World -> Picture
 renderHelpMenu world =
   case buildMode (inputState world) of
     HelpMenu ->
-      let panelW = 700
-          panelH = 600
+      let panelW = 750
+          panelH = 650
       in pictures
         [ -- Dim background
           color (makeColor 0 0 0 0.7) $ rectangleSolid worldWidth worldHeight
@@ -591,43 +591,57 @@ renderHelpMenu world =
             [ color parchment $ rectangleSolid panelW panelH
             , color darkWoodBrown $ rectangleWire panelW panelH
             , -- Header
-              translate (-120) 250 $ scale 0.35 0.35 $ color darkWoodBrown $ text "GAME LEGEND & GUIDE"
+              translate (-150) 280 $ scale 0.3 0.3 $ color darkWoodBrown $ text "GAME LEGEND & UPGRADE GUIDE"
             , -- Close Button
               translate (panelW/2 - 30) (panelH/2 - 30) $ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 40 40
             , translate (panelW/2 - 40) (panelH/2 - 40) $ scale 0.2 0.2 $ color (makeColor 1 1 1 1) $ text "X"
-            , -- Content
-              translate (-300) 200 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TOWERS:"
-            , translate (-300) 180 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "4-Arrow  5-Catapult  6-Crossbow  7-Fire"
-            , translate (-300) 160 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "8-Tesla  9-Ballista  0-Poison  --Bombard"
-            , translate (-300) 130 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TRAPS:"
-            , translate (-300) 110 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Z-Spike  X-Freeze  C-Fire Pit  V-Magic Snare  N-Explosive"
-            , translate (-300) 80 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "ENEMIES:"
-            , translate (-300) 60 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Grunt Raider - Basic melee unit"
-            , translate (-300) 40 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Shieldbearer - Armored tank"
-            , translate (-300) 20 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Direwolf - Fast runner"
-            , translate (-300) 0 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Pyromancer - Ranged caster"
-            , translate (-300) (-20) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Brute Crusher - Heavy melee"
-            , translate (-300) (-40) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Trap Breaker - Disarms traps"
-            , translate (-300) (-60) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Wall Climber - Climbs walls (Archers target)"
-            , translate (-300) (-80) $ scale 0.1 0.1 $ color (makeColor 0.8 0.3 0.1 1) $ text "Berserker - Short-range melee, climbs walls"
-            , translate (-300) (-100) $ scale 0.1 0.1 $ color (makeColor 0.4 0.2 0.5 1) $ text "Assassin - Fast short-range, targets towers"
-            , translate (-300) (-120) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Boulder Ram - Siege unit"
-            , translate (-300) (-150) $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TRAP DESCRIPTIONS:"
-            , translate (-300) (-170) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Spike Trap - Instant damage, one-time use"
-            , translate (-300) (-190) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Freeze Trap - Slows enemies"
-            , translate (-300) (-210) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Fire Pit - Continuous fire damage"
-            , translate (-300) (-230) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Magic Snare - Roots enemies (0 speed)"
-            , translate (-300) (-250) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Explosive Barrel - Area damage, one-time"
-            , translate 50 200 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "CONTROLS:"
-            , translate 50 180 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "B - Shop Menu  M - This Help"
-            , translate 50 160 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "H - Upgrade Gate  G - Repair Gate"
-            , translate 50 140 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "U - Upgrade Tower (hover)"
-            , translate 50 120 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Space - Pause  1/2/3 - Speed"
-            , translate 50 100 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Q/R - Quit/Reset"
-            , translate 50 60 $ scale 0.12 0.12 $ color (makeColor 0.8 0.2 0.2 1) $ text "PRIORITY TARGETS:"
-            , translate 50 40 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Archers prioritize climbers!"
-            , translate 50 20 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Siege towers target inside fort"
-            , translate 50 0 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Wall climbers bypass gate!"
+            -- LEFT COLUMN
+            , translate (-320) 240 $ scale 0.12 0.12 $ color (makeColor 0.8 0.5 0.1 1) $ text "UPGRADE SYSTEM:"
+            , translate (-320) 220 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "U key + click tower/trap to upgrade (max Lv3)"
+            , translate (-320) 200 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "H key - Upgrade all gates (max Lv5)"
+            , translate (-320) 180 $ scale 0.09 0.09 $ color (makeColor 0.1 0.6 0.1 1) $ text "Lv2: +25% stats, Lv3: +50% + Special Ability"
+            , translate (-320) 150 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TOWERS (4-0 keys):"
+            , translate (-320) 130 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Arrow(50g) Catapult(120g) Crossbow(150g)"
+            , translate (-320) 110 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Fire(130g) Tesla(200g) Ballista(220g)"
+            , translate (-320) 90 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Poison(90g) Bombard(250g)"
+            , translate (-320) 60 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TRAPS (Z,X,C,V,N keys):"
+            , translate (-320) 40 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Spike(20g) Freeze(35g) FirePit(45g)"
+            , translate (-320) 20 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "MagicSnare(50g) Explosive(80g)"
+            , translate (-320) (-10) $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "ENEMIES:"
+            , translate (-320) (-30) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "Grunt - Basic | Shieldbearer - Armored"
+            , translate (-320) (-48) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "Direwolf - Fast | Pyromancer - Ranged"
+            , translate (-320) (-66) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "BruteCrusher - Heavy | TrapBreaker - Anti-trap"
+            , translate (-320) (-84) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "WallClimber - Bypasses gate"
+            , translate (-320) (-102) $ scale 0.08 0.08 $ color (makeColor 0.8 0.3 0.1 1) $ text "Berserker - High dmg melee, climbs"
+            , translate (-320) (-120) $ scale 0.08 0.08 $ color (makeColor 0.4 0.2 0.5 1) $ text "Assassin - Fast, targets towers"
+            , translate (-320) (-138) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "BoulderRam - Siege unit"
+            , translate (-320) (-170) $ scale 0.12 0.12 $ color (makeColor 0.8 0.2 0.2 1) $ text "BOSSES (Level 3):"
+            , translate (-320) (-190) $ scale 0.08 0.08 $ color (makeColor 0.6 0.1 0.1 1) $ text "Ironback Minotaur - Tank, charge attack"
+            , translate (-320) (-208) $ scale 0.08 0.08 $ color (makeColor 0.8 0.3 0.1 1) $ text "Fire Drake - Fire breath AoE"
+            , translate (-320) (-226) $ scale 0.08 0.08 $ color (makeColor 0.3 0.1 0.5 1) $ text "Lich King - Summons undead"
+            -- RIGHT COLUMN
+            , translate 50 240 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "CONTROLS:"
+            , translate 50 220 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "B - Shop Menu  M - This Help"
+            , translate 50 200 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "H - Upgrade Gates  G - Repair Gates"
+            , translate 50 180 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "U - Upgrade Mode (click tower/trap)"
+            , translate 50 160 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Space - Pause  1/2/3 - Speed"
+            , translate 50 130 $ scale 0.12 0.12 $ color (makeColor 0.1 0.5 0.8 1) $ text "LEVEL PROGRESSION:"
+            , translate 50 110 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Level 1: Basic enemies"
+            , translate 50 90 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Level 2: +Climbers, Berserkers"
+            , translate 50 70 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Level 3: All enemies + BOSS WAVE"
+            , translate 50 50 $ scale 0.09 0.09 $ color (makeColor 0.1 0.7 0.1 1) $ text "Victory after Level 3!"
+            , translate 50 20 $ scale 0.12 0.12 $ color (makeColor 0.8 0.5 0.1 1) $ text "UPGRADE COSTS:"
+            , translate 50 0 $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Towers: Base/2 + 50g per level"
+            , translate 50 (-20) $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Traps: Base/2 + 25g per level"
+            , translate 50 (-40) $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Gates: 150g + 100g per level"
+            , translate 50 (-70) $ scale 0.12 0.12 $ color (makeColor 0.8 0.2 0.2 1) $ text "PRIORITY TARGETS:"
+            , translate 50 (-90) $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Archers prioritize climbers!"
+            , translate 50 (-110) $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Siege towers target inside fort"
+            , translate 50 (-130) $ scale 0.09 0.09 $ color (makeColor 0.2 0.2 0.2 1) $ text "Traps hidden until enemy nearby"
+            , translate 50 (-160) $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TIPS:"
+            , translate 50 (-180) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "Upgrade towers before new waves"
+            , translate 50 (-198) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "Place traps on enemy paths"
+            , translate 50 (-216) $ scale 0.08 0.08 $ color (makeColor 0.2 0.2 0.2 1) $ text "Archers near walls for climbers"
             ]
         ]
     _ -> blank
