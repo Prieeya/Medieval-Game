@@ -52,11 +52,16 @@ handleKeyEvent key keyState mousePos world =
         _ -> world
         
     _ -> case (key, keyState) of
-      -- Shop Menu
-      (Char 'b', Down) -> setBuildMode ShopMenu world
+      -- Shop Menu (TAB key instead of B)
+      (Char '\t', Down) -> setBuildMode ShopMenu world
+      (SpecialKey KeyTab, Down) -> setBuildMode ShopMenu world
       
       -- Help Menu
       (Char 'm', Down) -> 
+        if buildMode (inputState world) == HelpMenu
+        then setBuildMode NoBuild world
+        else setBuildMode HelpMenu world
+      (Char 'M', Down) -> 
         if buildMode (inputState world) == HelpMenu
         then setBuildMode NoBuild world
         else setBuildMode HelpMenu world
@@ -84,20 +89,25 @@ handleKeyEvent key keyState mousePos world =
       (Char '0', Down) -> setBuildMode (PlaceTower PoisonTower) world
       (Char '-', Down) -> setBuildMode (PlaceTower BombardTower) world
       
-      -- Build Modes - Traps
+      -- Build Modes - Traps (lowercase and uppercase)
       (Char 'z', Down) -> setBuildMode (PlaceTrap SpikeTrap) world
+      (Char 'Z', Down) -> setBuildMode (PlaceTrap SpikeTrap) world
       (Char 'x', Down) -> setBuildMode (PlaceTrap FreezeTrap) world
+      (Char 'X', Down) -> setBuildMode (PlaceTrap FreezeTrap) world
       (Char 'c', Down) -> setBuildMode (PlaceTrap FirePitTrap) world
+      (Char 'C', Down) -> setBuildMode (PlaceTrap FirePitTrap) world
       (Char 'v', Down) -> setBuildMode (PlaceTrap MagicSnareTrap) world
-      -- ExplosiveBarrel moved to Shop or keeps 'b'? 'b' is now shop.
-      -- Let's move ExplosiveBarrel to 'n' or access via Shop.
-      (Char 'n', Down) -> setBuildMode (PlaceTrap ExplosiveBarrel) world
+      (Char 'V', Down) -> setBuildMode (PlaceTrap MagicSnareTrap) world
+      (Char 'b', Down) -> setBuildMode (PlaceTrap ExplosiveBarrel) world
+      (Char 'B', Down) -> setBuildMode (PlaceTrap ExplosiveBarrel) world
       
       -- Upgrade Mode
       (Char 'u', Down) -> setBuildMode UpgradeMode world
+      (Char 'U', Down) -> setBuildMode UpgradeMode world
       
       -- Gate Upgrade
       (Char 'h', Down) -> upgradeGate world
+      (Char 'H', Down) -> upgradeGate world
       
       -- Cancel Build
       (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
@@ -108,9 +118,13 @@ handleKeyEvent key keyState mousePos world =
       
       -- Abilities
       (Char 'q', Down) -> AbilitySystem.activateAbility Firestorm world
+      (Char 'Q', Down) -> AbilitySystem.activateAbility Firestorm world
       (Char 'w', Down) -> AbilitySystem.activateAbility FreezeField world
+      (Char 'W', Down) -> AbilitySystem.activateAbility FreezeField world
       (Char 'e', Down) -> AbilitySystem.activateAbility RepairWalls world
+      (Char 'E', Down) -> AbilitySystem.activateAbility RepairWalls world
       (Char 'r', Down) -> AbilitySystem.activateAbility TimeSlow world
+      (Char 'R', Down) -> AbilitySystem.activateAbility TimeSlow world
       
       -- Mouse Click
       (MouseButton LeftButton, Down) ->

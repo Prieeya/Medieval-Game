@@ -9,14 +9,40 @@ import qualified Data.Set as S
 -- Trap System
 -- ============================================================================
 
+-- Trap effect durations (in seconds)
+trapEffectDuration :: TrapType -> Float
+trapEffectDuration FreezeTrap = 2.0      -- Slow for 2 seconds
+trapEffectDuration MagicSnareTrap = 1.5  -- Root for 1.5 seconds (reduced from permanent)
+trapEffectDuration FirePitTrap = 3.0     -- Burn for 3 seconds
+trapEffectDuration _ = 0
+
 updateTraps :: Float -> World -> World
 updateTraps dt world =
   let traps' = M.map (updateTrap dt) (traps world)
-  in world { traps = traps' }
+      -- Also update enemies to recover from trap effects over time
+      enemies' = M.map (recoverFromTrapEffects dt) (enemies world)
+  in world { traps = traps', enemies = enemies' }
+
+-- Enemies slowly recover their speed over time
+recoverFromTrapEffects :: Float -> Enemy -> Enemy
+recoverFromTrapEffects dt enemy =
+  let currentSlow = enemySlowFactor enemy
+      -- Recover 0.5 speed factor per second (full recovery in 2 seconds from 0)
+      recoveryRate = 0.5 * dt
+      newSlow = min 1.0 (currentSlow + recoveryRate)
+  in if currentSlow < 1.0
+     then enemy { enemySlowFactor = newSlow }
+     else enemy
 
 updateTrap :: Float -> Trap -> Trap
 updateTrap dt trap =
-  trap { trapActiveTime = trapActiveTime trap + dt }
+  let newActiveTime = trapActiveTime trap + dt
+      -- Clear affected enemies after effect duration expires
+      duration = trapEffectDuration (trapType trap)
+      shouldClear = duration > 0 && newActiveTime > duration
+      newAffected = if shouldClear then S.empty else trapAffectedEnemies trap
+      newActiveTime' = if shouldClear then 0 else newActiveTime
+  in trap { trapActiveTime = newActiveTime', trapAffectedEnemies = newAffected }
 
 triggerTrap :: EntityId -> Trap -> Enemy -> (Trap, [VisualEffect])
 triggerTrap enemyId trap enemy =
@@ -50,11 +76,14 @@ applyTrapEffects :: Trap -> Enemy -> Enemy
 applyTrapEffects trap enemy =
   case trapType trap of
     FreezeTrap ->
+      -- Slow to 40% speed (not permanent, will recover)
       enemy { enemySlowFactor = trapSlowFactor FreezeTrap }
     MagicSnareTrap ->
-      enemy { enemySlowFactor = 0.0 }  -- Root (0 speed)
+      -- Root to 10% speed (not 0, so they can still inch forward)
+      enemy { enemySlowFactor = 0.1 }
     FirePitTrap ->
-      enemy  -- Continuous damage handled elsewhere
+      -- Slight slow from fire
+      enemy { enemySlowFactor = max 0.7 (enemySlowFactor enemy) }
     _ -> enemy
 
 shouldRemoveTrap :: Trap -> Bool
