@@ -10,14 +10,26 @@ import Control.Monad (when)
 import Control.Exception (SomeException, catch)
 
 -- ============================================================================
--- Music System
+-- Music System with Dynamic Game Progression Support
 -- ============================================================================
+
+-- Music intensity levels based on game state
+data MusicIntensity
+  = MusicCalm        -- Build phase, peaceful
+  | MusicNormal      -- Regular wave in progress
+  | MusicIntense     -- Boss fight or late waves
+  | MusicVictory     -- Level cleared
+  | MusicDefeat      -- Game over
+  deriving (Show, Eq)
 
 data MusicState = MusicState
   { musicInitialized :: Bool
   , musicEnabled :: Bool
   , currentTrack :: Maybe FilePath
   , musicVolume :: Int  -- 0-128
+  , musicIntensity :: MusicIntensity  -- Current music intensity
+  , musicFadeTimer :: Float  -- Timer for crossfade transitions
+  , musicCheckTimer :: Float -- Timer to periodically check if music is still playing
   }
 
 initialMusicState :: MusicState
@@ -26,6 +38,9 @@ initialMusicState = MusicState
   , musicEnabled = True
   , currentTrack = Nothing
   , musicVolume = 60  -- Default volume at 60/128 (~47%)
+  , musicIntensity = MusicCalm
+  , musicFadeTimer = 0
+  , musicCheckTimer = 0
   }
 
 -- ============================================================================
@@ -47,12 +62,14 @@ initializeMusic = do
       -- Smaller buffers (like 256) can cause the same segment to repeat instead of playing the full track
       Mix.openAudio Mix.defaultAudio 4096
       hPutStrLn stderr "Music system initialized successfully."
+      hPutStrLn stderr "Music will loop continuously during gameplay."
       return initialMusicState { musicInitialized = True, musicEnabled = True }
     handleError e = do
       hPutStrLn stderr $ "Warning: Failed to initialize music: " ++ show (e :: SomeException)
       hPutStrLn stderr "Game will continue without background music."
       return initialMusicState { musicEnabled = False }
 #else
+initializeMusic = do
   hPutStrLn stderr "Music system not compiled (SDL2_mixer not available)."
   hPutStrLn stderr "Game will run without background music."
   return initialMusicState { musicEnabled = False }
@@ -62,7 +79,7 @@ initializeMusic = do
 -- Music Playback
 -- ============================================================================
 
--- Play background music (looping)
+-- Play background music (looping continuously)
 playMusic :: MusicState -> FilePath -> IO MusicState
 playMusic musicState path
   | not (musicEnabled musicState) = return musicState
@@ -76,16 +93,81 @@ playMusic musicState path
       music <- Mix.load path
       -- Stop current music if playing
       Mix.haltMusic
-      -- Play new music with looping
+      -- Play new music with infinite looping (Forever = -1 loops)
+      -- This ensures music plays continuously without stopping
       Mix.playMusic Mix.Forever music
-      hPutStrLn stderr $ "Playing music: " ++ path
-      return musicState { currentTrack = Just path }
+      hPutStrLn stderr $ "Playing music (looping): " ++ path
+      return musicState { currentTrack = Just path, musicCheckTimer = 0 }
     handleError e = do
       hPutStrLn stderr $ "Warning: Failed to load music " ++ path ++ ": " ++ show (e :: SomeException)
       return musicState
 #else
   | otherwise = return musicState
 #endif
+
+-- Check if music is still playing and restart if needed
+-- Call this periodically to ensure continuous playback
+checkAndRestartMusic :: MusicState -> IO MusicState
+checkAndRestartMusic musicState
+  | not (musicEnabled musicState) = return musicState
+  | not (musicInitialized musicState) = return musicState
+#ifdef USE_SDL2_MIXER
+  | otherwise = do
+      isPlaying <- Mix.playingMusic
+      isPaused <- Mix.pausedMusic
+      if isPlaying && not isPaused
+        then return musicState  -- Music is playing normally, all good
+        else case currentTrack musicState of
+          Nothing -> return musicState
+          Just track -> do
+            -- Music stopped or paused - restart it if not paused
+            if isPaused
+              then return musicState  -- Music is paused, don't restart
+              else do
+                -- Music actually stopped, restart it immediately
+                tryRestart track
+  where
+    tryRestart path = do
+      catch (do
+        -- Stop any existing music first
+        Mix.haltMusic
+        -- Small delay to ensure cleanup
+        music <- Mix.load path
+        -- Play with infinite looping
+        Mix.playMusic Mix.Forever music
+        return musicState)
+        handleError
+    handleError :: SomeException -> IO MusicState
+    handleError _ = do
+      -- Silently handle errors to avoid spam
+      return musicState
+#else
+  | otherwise = return musicState
+#endif
+
+-- Update music state based on game time (call this every frame)
+-- This handles checking if music needs to be restarted
+updateMusicState :: MusicState -> Float -> IO MusicState
+updateMusicState musicState dt
+  | not (musicEnabled musicState) = return musicState
+  | not (musicInitialized musicState) = return musicState
+  | otherwise = do
+      let newCheckTimer = musicCheckTimer musicState + dt
+      -- Check every 2 seconds if music is still playing
+      -- More frequent checks to catch music stopping quickly
+      if newCheckTimer >= 2.0
+        then do
+          newState <- checkAndRestartMusic musicState
+          return newState { musicCheckTimer = 0 }
+        else return musicState { musicCheckTimer = newCheckTimer }
+
+-- Set music intensity based on game state
+setMusicIntensity :: MusicState -> MusicIntensity -> IO MusicState
+setMusicIntensity musicState intensity
+  | musicIntensity musicState == intensity = return musicState  -- No change
+  | otherwise = do
+      hPutStrLn stderr $ "Music intensity changed to: " ++ show intensity
+      return musicState { musicIntensity = intensity }
 
 -- Stop music
 stopMusic :: MusicState -> IO MusicState

@@ -45,6 +45,8 @@ data UnitType
   | Shieldbearer     -- Armored Unit
   | Pyromancer       -- Ranged Caster
   | Necromancer      -- Summoner
+  | TrapBreaker      -- New enemy that targets traps
+  | WallClimber      -- Climbs walls
   | BoulderRamCrew   -- Siege Unit
   | IronbackMinotaur -- Boss Level 3
   | FireDrake        -- Boss Level 6
@@ -96,6 +98,9 @@ data Enemy = Enemy
   , enemySpawnSide :: SpawnSide
   , enemyAnimState :: AnimationState  -- Animation state and frame
   , enemyDeathTimer :: Float  -- Timer for death animation before removal
+  , bossAbilityCooldown :: Float  -- Cooldown for boss special abilities
+  , bossLastAbilityTime :: Float  -- When last boss ability was used
+  , bossSpawnTimer :: Float  -- Timer for boss minion spawning
   } deriving (Show, Generic)
 
 data SpawnSide = LeftSide | CenterSide | RightSide
@@ -227,6 +232,7 @@ data Gate = Gate
   , gateMaxHP :: Float
   , gateWidth :: Float
   , gateDestroyed :: Bool
+  , gateLevel :: Int
   } deriving (Show, Generic)
 
 data Fort = Fort
@@ -366,8 +372,29 @@ data BuildMode
   = PlaceTower TowerType
   | PlaceTrap TrapType
   | UpgradeMode
+  | ShopMenu
+  | HelpMenu
+  | ConfirmationDialog String (World -> World) (World -> World)  -- Message, Confirm Action, Cancel Action
   | NoBuild
-  deriving (Show, Eq, Generic)
+  deriving (Generic)
+
+instance Show BuildMode where
+  show (PlaceTower t) = "PlaceTower " ++ show t
+  show (PlaceTrap t) = "PlaceTrap " ++ show t
+  show UpgradeMode = "UpgradeMode"
+  show ShopMenu = "ShopMenu"
+  show HelpMenu = "HelpMenu"
+  show (ConfirmationDialog msg _ _) = "ConfirmationDialog " ++ msg
+  show NoBuild = "NoBuild"
+
+instance Eq BuildMode where
+  (PlaceTower t1) == (PlaceTower t2) = t1 == t2
+  (PlaceTrap t1) == (PlaceTrap t2) = t1 == t2
+  UpgradeMode == UpgradeMode = True
+  ShopMenu == ShopMenu = True
+  (ConfirmationDialog m1 _ _) == (ConfirmationDialog m2 _ _) = m1 == m2
+  NoBuild == NoBuild = True
+  _ == _ = False
 
 data InputState = InputState
   { mousePos :: Vec2
@@ -410,6 +437,44 @@ gameSpeedValue Speed2x = 2.0
 gameSpeedValue Speed4x = 4.0
 
 -- ============================================================================
+-- Sound Events
+-- ============================================================================
+
+data SoundEvent
+  -- Tower Sounds
+  = SoundTowerFire TowerType
+  | SoundTowerBuild
+  | SoundTowerSell
+  | SoundTowerUpgrade
+  | SoundTowerDestroyed
+  
+  -- Combat Sounds
+  | SoundProjectileHit ProjectileType
+  | SoundEnemyHit UnitType
+  | SoundEnemyDeath UnitType
+  | SoundEnemyAttack UnitType
+  | SoundTrapTriggered
+  
+  -- Fort Sounds
+  | SoundGateHit
+  | SoundGateDestroyed
+  | SoundGateRepaired
+  | SoundWallHit
+  | SoundCastleHit
+  
+  -- UI/Game Sounds
+  | SoundWaveStart
+  | SoundWaveComplete
+  | SoundLevelComplete
+  | SoundGameOver
+  | SoundVictory
+  | SoundButtonHover
+  | SoundButtonClick
+  | SoundError
+  | SoundUpgrade
+  deriving (Show, Eq, Generic)
+
+-- ============================================================================
 -- World State
 -- ============================================================================
 
@@ -439,4 +504,7 @@ data World = World
   , paths :: M.Map SpawnSide [Vec2]
   , insideFortPaths :: [Vec2]
   , upgradeUnlock :: UpgradeUnlock
+  , soundEvents :: [SoundEvent]  -- Queue of sound events to play
+  , shouldExit :: Bool
+  , knownTraps :: S.Set Vec2 -- Locations of traps discovered by enemy deaths
   } deriving (Show, Generic)

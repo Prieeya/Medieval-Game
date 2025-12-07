@@ -42,6 +42,7 @@ executable medieval-siege
                     , Systems.TrapSystem
                     , Systems.DamageSystem
                     , Systems.AbilitySystem
+                    , Systems.BossAbilities
                     , Audio.AudioCore
                     , Audio.SoundEvents
                     , Audio.Music

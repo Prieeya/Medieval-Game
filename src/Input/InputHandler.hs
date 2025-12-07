@@ -27,58 +27,96 @@ handleInput event world = case event of
 -- ============================================================================
 
 handleKeyEvent :: Key -> KeyState -> (Float, Float) -> World -> World
-handleKeyEvent key keyState mousePos world = case (key, keyState) of
-  -- Pause
-  (SpecialKey KeySpace, Down) ->
-    world { isPaused = not (isPaused world) }
-  
-  -- Game Speed
-  (Char '1', Down) -> world { gameSpeed = Speed1x }
-  (Char '2', Down) -> world { gameSpeed = Speed2x }
-  (Char '3', Down) -> world { gameSpeed = Speed4x }
-  
-  -- Debug Toggle
-  (SpecialKey KeyF1, Down) ->
-    world { showDebug = not (showDebug world) }
-  
-  -- Build Modes - Towers
-  (Char '4', Down) -> setBuildMode (PlaceTower ArrowTower) world
-  (Char '5', Down) -> setBuildMode (PlaceTower CatapultTower) world
-  (Char '6', Down) -> setBuildMode (PlaceTower CrossbowTower) world
-  (Char '7', Down) -> setBuildMode (PlaceTower FireTower) world
-  (Char '8', Down) -> setBuildMode (PlaceTower TeslaTower) world
-  (Char '9', Down) -> setBuildMode (PlaceTower BallistaTower) world
-  (Char '0', Down) -> setBuildMode (PlaceTower PoisonTower) world
-  (Char '-', Down) -> setBuildMode (PlaceTower BombardTower) world
-  
-  -- Build Modes - Traps
-  (Char 'z', Down) -> setBuildMode (PlaceTrap SpikeTrap) world
-  (Char 'x', Down) -> setBuildMode (PlaceTrap FreezeTrap) world
-  (Char 'c', Down) -> setBuildMode (PlaceTrap FirePitTrap) world
-  (Char 'v', Down) -> setBuildMode (PlaceTrap MagicSnareTrap) world
-  (Char 'b', Down) -> setBuildMode (PlaceTrap ExplosiveBarrel) world
-  
-  -- Upgrade Mode
-  (Char 'u', Down) -> setBuildMode UpgradeMode world
-  
-  -- Cancel Build
-  (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
-  
-  -- Gate Repair (only if repair is pending)
-  (Char 'g', Down) -> repairGateIfPending world
-  (Char 'G', Down) -> repairGateIfPending world
-  
-  -- Abilities
-  (Char 'q', Down) -> AbilitySystem.activateAbility Firestorm world
-  (Char 'w', Down) -> AbilitySystem.activateAbility FreezeField world
-  (Char 'e', Down) -> AbilitySystem.activateAbility RepairWalls world
-  (Char 'r', Down) -> AbilitySystem.activateAbility TimeSlow world
-  
-  -- Mouse Click
-  (MouseButton LeftButton, Down) ->
-    handleMouseClick mousePos world
-  
-  _ -> world
+handleKeyEvent key keyState mousePos world = 
+  case buildMode (inputState world) of
+    ConfirmationDialog _ confirm cancel ->
+      case (key, keyState) of
+        (SpecialKey KeyEnter, Down) -> confirm world
+        (Char 'y', Down) -> confirm world
+        (SpecialKey KeyEsc, Down) -> cancel world
+        (Char 'n', Down) -> cancel world
+        _ -> world -- Block other inputs
+        
+    ShopMenu ->
+      case (key, keyState) of
+        (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
+        (Char 'b', Down) -> setBuildMode NoBuild world -- Toggle off
+        -- Let mouse clicks handle shop items
+        (MouseButton LeftButton, Down) -> handleMouseClick mousePos world
+        _ -> world
+        
+    HelpMenu ->
+      case (key, keyState) of
+        (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
+        (Char 'm', Down) -> setBuildMode NoBuild world
+        _ -> world
+        
+    _ -> case (key, keyState) of
+      -- Shop Menu
+      (Char 'b', Down) -> setBuildMode ShopMenu world
+      
+      -- Help Menu
+      (Char 'm', Down) -> 
+        if buildMode (inputState world) == HelpMenu
+        then setBuildMode NoBuild world
+        else setBuildMode HelpMenu world
+
+      -- Pause
+      (SpecialKey KeySpace, Down) ->
+        world { isPaused = not (isPaused world) }
+      
+      -- Game Speed
+      (Char '1', Down) -> world { gameSpeed = Speed1x }
+      (Char '2', Down) -> world { gameSpeed = Speed2x }
+      (Char '3', Down) -> world { gameSpeed = Speed4x }
+      
+      -- Debug Toggle
+      (SpecialKey KeyF1, Down) ->
+        world { showDebug = not (showDebug world) }
+      
+      -- Build Modes - Towers
+      (Char '4', Down) -> setBuildMode (PlaceTower ArrowTower) world
+      (Char '5', Down) -> setBuildMode (PlaceTower CatapultTower) world
+      (Char '6', Down) -> setBuildMode (PlaceTower CrossbowTower) world
+      (Char '7', Down) -> setBuildMode (PlaceTower FireTower) world
+      (Char '8', Down) -> setBuildMode (PlaceTower TeslaTower) world
+      (Char '9', Down) -> setBuildMode (PlaceTower BallistaTower) world
+      (Char '0', Down) -> setBuildMode (PlaceTower PoisonTower) world
+      (Char '-', Down) -> setBuildMode (PlaceTower BombardTower) world
+      
+      -- Build Modes - Traps
+      (Char 'z', Down) -> setBuildMode (PlaceTrap SpikeTrap) world
+      (Char 'x', Down) -> setBuildMode (PlaceTrap FreezeTrap) world
+      (Char 'c', Down) -> setBuildMode (PlaceTrap FirePitTrap) world
+      (Char 'v', Down) -> setBuildMode (PlaceTrap MagicSnareTrap) world
+      -- ExplosiveBarrel moved to Shop or keeps 'b'? 'b' is now shop.
+      -- Let's move ExplosiveBarrel to 'n' or access via Shop.
+      (Char 'n', Down) -> setBuildMode (PlaceTrap ExplosiveBarrel) world
+      
+      -- Upgrade Mode
+      (Char 'u', Down) -> setBuildMode UpgradeMode world
+      
+      -- Gate Upgrade
+      (Char 'h', Down) -> upgradeGate world
+      
+      -- Cancel Build
+      (SpecialKey KeyEsc, Down) -> setBuildMode NoBuild world
+      
+      -- Gate Repair (only if repair is pending)
+      (Char 'g', Down) -> repairGateIfPending world
+      (Char 'G', Down) -> repairGateIfPending world
+      
+      -- Abilities
+      (Char 'q', Down) -> AbilitySystem.activateAbility Firestorm world
+      (Char 'w', Down) -> AbilitySystem.activateAbility FreezeField world
+      (Char 'e', Down) -> AbilitySystem.activateAbility RepairWalls world
+      (Char 'r', Down) -> AbilitySystem.activateAbility TimeSlow world
+      
+      -- Mouse Click
+      (MouseButton LeftButton, Down) ->
+        handleMouseClick mousePos world
+      
+      _ -> world
 
 -- ============================================================================
 -- Mouse Handling
@@ -97,11 +135,96 @@ handleMouseClick :: (Float, Float) -> World -> World
 handleMouseClick mousePos world =
   let worldPos = mousePos
       mode = buildMode (inputState world)
+      (mx, my) = mousePos
+      halfW = Constants.worldWidth / 2
+      halfH = Constants.worldHeight / 2
   in case mode of
+    ConfirmationDialog _ confirm cancel ->
+      -- Simple hit detection for Confirm/Cancel buttons
+      -- Assuming dialog centered
+      if my >= -20 && my <= 20
+      then if mx >= -100 && mx <= -20 then confirm world
+           else if mx >= 20 && mx <= 100 then cancel world
+           else world
+      else world
+      
+    ShopMenu ->
+      -- Handle shop clicks
+      -- Close button (approx 270, 220)
+      if mx > 200 && my > 150 then setBuildMode NoBuild world 
+      -- Unlock Button (approx 0, -150)
+      else if not (upgradeUnlocked $ upgradeUnlock world) && 
+              mx >= -125 && mx <= 125 && my >= -175 && my <= -125
+           then tryUnlockUpgrades world
+      else world
+      
     PlaceTower towerType -> placeTower towerType worldPos world
     PlaceTrap trapType -> placeTrap trapType worldPos world
     UpgradeMode -> upgradeTowerAt worldPos world
-    NoBuild -> world
+    NoBuild -> 
+      -- Check for UI button clicks (buttons are at top-right)
+      -- Quit button: (worldWidth/2 - 80, worldHeight/2 - 60), size 60x25
+      -- Reset button: (worldWidth/2 - 80, worldHeight/2 - 90), size 60x25
+      let quitX = halfW - 80
+          quitY = halfH - 60
+          resetX = halfW - 80
+          resetY = halfH - 90
+          buttonW = 60
+          buttonH = 25
+      in if mx >= quitX - buttonW/2 && mx <= quitX + buttonW/2 &&
+            my >= quitY - buttonH/2 && my <= quitY + buttonH/2
+         then requestQuit world
+         else if mx >= resetX - buttonW/2 && mx <= resetX + buttonW/2 &&
+                 my >= resetY - buttonH/2 && my <= resetY + buttonH/2
+              then requestReset world
+              else world
+
+-- ============================================================================
+-- Game Actions
+-- ============================================================================
+
+tryUnlockUpgrades :: World -> World
+tryUnlockUpgrades world =
+  let unlock = upgradeUnlock world
+      cost = Constants.gateUpgradeBaseCost -- Actually use upgradeCost from Types/Config
+      realCost = upgradeCost unlock
+      res = resources world
+  in if resGold res >= realCost
+     then world { resources = ResourceSystem.spendGold realCost res
+                , upgradeUnlock = unlock { upgradeUnlocked = True }
+                , soundEvents = SoundUpgrade : soundEvents world
+                }
+     else world -- Could play error sound here
+
+requestQuit :: World -> World
+requestQuit world = 
+  setBuildMode (ConfirmationDialog "Quit Game?" (\w -> w { shouldExit = True }) (\w -> setBuildMode NoBuild w)) world
+
+requestReset :: World -> World
+requestReset world =
+  setBuildMode (ConfirmationDialog "Reset Game?" (\_ -> initialWorld) (\w -> setBuildMode NoBuild w)) world
+
+upgradeGate :: World -> World
+upgradeGate world =
+  let currentGate = fortGate (fort world)
+      lvl = gateLevel currentGate
+      cost = Constants.gateUpgradeBaseCost + lvl * 100
+      resources' = resources world
+  in if resGold resources' >= cost
+     then
+       let newMaxHP = Constants.gateMaxHP + fromIntegral lvl * Constants.gateHPPerLevel
+           newGate = currentGate 
+             { gateLevel = lvl + 1
+             , gateMaxHP = newMaxHP
+             , gateHP = newMaxHP -- Max heal
+             , gateDestroyed = False -- Repair if destroyed
+             }
+           newRes = ResourceSystem.spendGold cost resources'
+           fort' = (fort world) { fortGate = newGate }
+           -- Sound
+           events = SoundUpgrade : soundEvents world
+       in world { fort = fort', resources = newRes, soundEvents = events }
+     else world
 
 -- ============================================================================
 -- Building & Placing
@@ -111,21 +234,31 @@ placeTower :: TowerType -> Vec2 -> World -> World
 placeTower towerType pos world
   | not (isInsideFort pos) = world
   | not (isValidTowerPlacement pos world) = world
+  | isAdvancedTower towerType && not (upgradeUnlocked $ upgradeUnlock world) = world
   | resGold (resources world) < towerCost towerType = world
   | otherwise =
       let tower = createTower (nextEntityId world) towerType pos (timeElapsed world)
           towers' = M.insert (nextEntityId world) tower (towers world)
           resources' = ResourceSystem.spendGold (towerCost towerType) (resources world)
+          events = SoundTowerBuild : soundEvents world
           world' = world
             { towers = towers'
             , resources = resources'
             , nextEntityId = nextEntityId world + 1
+            , soundEvents = events
             }
       in world'
+
+isAdvancedTower :: TowerType -> Bool
+isAdvancedTower TeslaTower = True
+isAdvancedTower BallistaTower = True
+isAdvancedTower BombardTower = True
+isAdvancedTower _ = False
 
 placeTrap :: TrapType -> Vec2 -> World -> World
 placeTrap trapType pos world
   | not (isValidTrapPlacement pos world) = world
+  | isAdvancedTrap trapType && not (upgradeUnlocked $ upgradeUnlock world) = world
   | resGold (resources world) < trapCost trapType = world
   | otherwise =
       let initialAnim = AnimationState { animType = AnimIdle, animFrame = 0, animTime = 0 }
@@ -146,6 +279,11 @@ placeTrap trapType pos world
             , nextEntityId = nextEntityId world + 1
             }
       in world'
+
+isAdvancedTrap :: TrapType -> Bool
+isAdvancedTrap ExplosiveBarrel = True
+isAdvancedTrap MagicSnareTrap = True
+isAdvancedTrap _ = False
 
 upgradeTowerAt :: Vec2 -> World -> World
 upgradeTowerAt pos world =

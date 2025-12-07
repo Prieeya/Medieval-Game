@@ -37,6 +37,9 @@ initialWorld = World
   , paths = initialPaths
   , insideFortPaths = initialInsideFortPaths
   , upgradeUnlock = initialUpgradeUnlock
+  , soundEvents = []
+  , shouldExit = False
+  , knownTraps = S.empty
   }
 
 initialCastle :: Castle
@@ -62,6 +65,7 @@ initialGate = Gate
   , gateMaxHP = Constants.gateMaxHP
   , gateWidth = Constants.gateWidth
   , gateDestroyed = False
+  , gateLevel = 1
   }
 
 initialWalls :: [WallSegment]
@@ -180,7 +184,7 @@ createEnemy :: EntityId -> UnitType -> Vec2 -> SpawnSide -> Float -> Enemy
 createEnemy eid ut pos side time =
   let (hp, armor, spd, range, dmg, cd) = enemyStats ut
       role = unitTypeToRole ut
-      canClimb = False  -- No climbing enemies in new design
+      canClimb = ut == WallClimber
       prefs = unitTypePreferences ut
       initialAnim = AnimationState { animType = AnimMove, animFrame = 0, animTime = 0 }
   in Enemy
@@ -209,6 +213,9 @@ createEnemy eid ut pos side time =
     , enemySpawnSide = side
     , enemyAnimState = initialAnim
     , enemyDeathTimer = 0
+    , bossAbilityCooldown = if role == Boss then 0 else 999.0
+    , bossLastAbilityTime = time
+    , bossSpawnTimer = time
     }
 
 unitTypeToRole :: UnitType -> UnitRole
@@ -218,6 +225,8 @@ unitTypeToRole Direwolf = Fast
 unitTypeToRole Shieldbearer = Heavy
 unitTypeToRole Pyromancer = Ranged
 unitTypeToRole Necromancer = Ranged
+unitTypeToRole TrapBreaker = Fast
+unitTypeToRole WallClimber = Fast
 unitTypeToRole BoulderRamCrew = Siege
 unitTypeToRole IronbackMinotaur = Boss
 unitTypeToRole FireDrake = Boss
@@ -225,6 +234,8 @@ unitTypeToRole LichKingArcthros = Boss
 
 unitTypePreferences :: UnitType -> [TargetPreference]
 unitTypePreferences BoulderRamCrew = [PreferGate, PreferWalls, PreferCastle]
+unitTypePreferences TrapBreaker = [PreferTraps, PreferGate, PreferCastle]
+unitTypePreferences WallClimber = [PreferWalls, PreferCastle]
 unitTypePreferences Pyromancer = [PreferTowers, PreferCastle]
 unitTypePreferences Necromancer = [PreferTowers, PreferCastle]
 unitTypePreferences FireDrake = [PreferTowers, PreferCastle]
@@ -276,35 +287,101 @@ initialUpgradeUnlock = UpgradeUnlock
 initialDecorations :: M.Map EntityId Decoration
 initialDecorations = M.fromList $ zip [1..] $ generateDecorations
 
--- Generate random decorations scattered around grass (not on path or castle)
+-- Generate many decorations scattered around grass (not on path or castle)
+-- Creates a lush, forested environment around the battlefield
 generateDecorations :: [Decoration]
 generateDecorations =
   let
-    -- Generate positions avoiding path and castle area
-    positions = filter isValidDecoPosition [
-      (-600, -200), (-500, 100), (-400, -300), (-300, 200),
-      (-200, -100), (-100, 300), (0, -250), (100, 150),
-      (200, -300), (300, 100), (500, -200), (600, 250),
-      (-550, 0), (-450, -150), (-350, 250), (-250, -200),
-      (-150, 50), (-50, -300), (50, 200), (150, -100),
-      (250, 300), (350, -150), (450, 100), (550, -250)
+    -- Dense tree/bush positions for outer areas (far from fort and paths)
+    -- Top edge forest
+    topForest = [(x, y) | x <- [-750, -650 .. 750], y <- [350, 400]]
+    -- Bottom edge forest
+    bottomForest = [(x, y) | x <- [-750, -650 .. 750], y <- [-350, -400]]
+    -- Left edge forest (spawn area backdrop)
+    leftForest = [(x, y) | x <- [-780, -730], y <- [-300, -200 .. 300]]
+    -- Scattered trees/bushes in battlefield (avoiding paths)
+    scatteredTrees = [
+      -- Upper left area
+      (-600, 250), (-550, 300), (-500, 280), (-450, 320),
+      (-650, 180), (-580, 200), (-520, 220), (-470, 180),
+      -- Lower left area
+      (-600, -250), (-550, -300), (-500, -280), (-450, -320),
+      (-650, -180), (-580, -200), (-520, -220), (-470, -180),
+      -- Upper middle (between paths)
+      (-350, 280), (-300, 320), (-250, 300), (-200, 280),
+      (-380, 220), (-320, 250), (-280, 200),
+      -- Lower middle (between paths)
+      (-350, -280), (-300, -320), (-250, -300), (-200, -280),
+      (-380, -220), (-320, -250), (-280, -200),
+      -- Far right (behind fort, visible edges)
+      (700, 300), (750, 250), (680, 350), (720, 400),
+      (700, -300), (750, -250), (680, -350), (720, -400),
+      -- Additional scattered bushes
+      (-620, 100), (-570, 50), (-530, -50), (-480, -100),
+      (-420, 150), (-370, 100), (-330, 50),
+      (-420, -150), (-370, -100), (-330, -50),
+      -- Near top/bottom edges
+      (-150, 380), (-50, 400), (50, 380), (150, 400),
+      (-150, -380), (-50, -400), (50, -380), (150, -400),
+      -- More bushes for density
+      (-680, 0), (-640, 50), (-640, -50),
+      (-590, 120), (-590, -120),
+      (-540, 0), (-540, 80), (-540, -80),
+      -- Rocks scattered
+      (-700, 150), (-700, -150), (-650, 0),
+      (-400, 350), (-400, -350),
+      (-100, 350), (-100, -350),
+      (650, 200), (650, -200)
       ]
-    decoTypes = cycle [TreeSmall, TreeLarge, Bush, Rock]
-  in zipWith (\id (pos, decoType) -> Decoration
+    
+    -- Combine all positions and filter valid ones
+    allPositions = filter isValidDecoPosition (topForest ++ bottomForest ++ leftForest ++ scatteredTrees)
+    
+    -- Assign decoration types based on position for natural look
+    assignDecoType :: Vec2 -> DecoType
+    assignDecoType (x, y)
+      | abs y > 350 = TreeLarge  -- Edge forests have large trees
+      | x < -700 = TreeLarge     -- Left edge has large trees
+      | abs y > 250 = TreeSmall  -- Mid-outer areas have small trees
+      | abs x > 600 = TreeSmall  -- Far areas have small trees
+      | (round x + round y) `mod` 3 == 0 = Bush  -- Some bushes
+      | (round x + round y) `mod` 5 == 0 = Rock  -- Some rocks
+      | otherwise = Bush         -- Default to bushes
+    
+  in zipWith (\id pos -> Decoration
     { decoId = id
-    , decoType = decoType
+    , decoType = assignDecoType pos
     , decoPos = pos
-    }) [2000..] (zip positions decoTypes)
+    }) [2000..] allPositions
 
 isValidDecoPosition :: Vec2 -> Bool
 isValidDecoPosition (x, y) =
-  -- Not inside fort
-  not (x >= fortLeft && x <= fortRight && y >= fortBottom && y <= fortTop) &&
-  -- Not too close to spawn points
-  not (x >= leftSpawnX - 100 && x <= leftSpawnX + 100) &&
-  not (x >= centerSpawnX - 100 && x <= centerSpawnX + 100) &&
-  not (x >= rightSpawnX - 100 && x <= rightSpawnX + 100) &&
+  -- Not inside fort (with some margin)
+  not (x >= fortLeft - 30 && x <= fortRight + 30 && y >= fortBottom - 30 && y <= fortTop + 30) &&
+  -- Not too close to left spawn point
+  not (x >= leftSpawnX - 50 && x <= leftSpawnX + 80 && abs y < 250) &&
+  -- Not too close to center spawn point
+  not (x >= centerSpawnX - 50 && x <= centerSpawnX + 80 && abs y < 100) &&
+  -- Not too close to right spawn point
+  not (x >= rightSpawnX - 50 && x <= rightSpawnX + 80 && abs y < 250) &&
+  -- Not on main paths (approximate path areas)
+  not (isOnPath (x, y)) &&
   -- Not too close to castle
-  distance (x, y) (castleX, castleY) > 200
+  distance (x, y) (castleX, castleY) > 250
   where
     distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)
+    
+    -- Check if position is on or near enemy paths
+    isOnPath (px, py) =
+      -- Left path area
+      (px > leftSpawnX && px < gateX && abs (py - leftPathY px) < 80) ||
+      -- Center path area  
+      (px > centerSpawnX && px < gateX && abs py < 60) ||
+      -- Right path area
+      (px > rightSpawnX && px < gateX && abs (py - rightPathY px) < 80)
+    
+    -- Approximate Y position of left path at given X
+    leftPathY px = -200 + (px - leftSpawnX) * 200 / (gateX - leftSpawnX)
+    
+    -- Approximate Y position of right path at given X
+    rightPathY px = 200 - (px - rightSpawnX) * 200 / (gateX - rightSpawnX)

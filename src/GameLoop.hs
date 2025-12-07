@@ -16,6 +16,7 @@ import qualified Systems.DamageSystem as DamageSystem
 import qualified Systems.AbilitySystem as AbilitySystem
 import qualified Systems.CastleSystem as CastleSystem
 import qualified Systems.FortSystem as FortSystem
+import qualified Systems.BossAbilities as BossAbilities
 import qualified Rendering.SpriteAnimation
 import qualified Data.Map.Strict as M
 
@@ -58,8 +59,14 @@ updateGameSystems dt world =
 
 updateEnemies :: Float -> World -> World
 updateEnemies dt world =
-  let enemies' = M.map (updateEnemy dt world) (enemies world)
-  in world { enemies = enemies' }
+  let -- Update boss abilities first (returns updated enemies and world)
+      (enemies', world') = M.foldlWithKey (\acc eid enemy ->
+        let (enemy', world'') = BossAbilities.updateBossAbilities dt (snd acc) enemy
+        in (M.insert eid enemy' (fst acc), world'')
+      ) (M.empty, world) (enemies world)
+      -- Then update normal enemy AI and movement
+      enemies'' = M.map (updateEnemy dt world') enemies'
+  in world' { enemies = enemies'' }
 
 updateEnemy :: Float -> World -> Enemy -> Enemy
 updateEnemy dt world enemy =
@@ -95,9 +102,10 @@ updateEnemyEffects dt enemy =
 updateTowers :: Float -> World -> World
 updateTowers dt world =
   let towers' = M.map (updateTower dt world) (towers world)
-      (towers'', newProjectiles) = TowerSystem.fireTowers dt world towers'
+      (towers'', newProjectiles, fireEvents) = TowerSystem.fireTowers dt world towers'
       allProjectiles = M.union newProjectiles (projectiles world)
-  in world { towers = towers'', projectiles = allProjectiles }
+      allEvents = fireEvents ++ soundEvents world
+  in world { towers = towers'', projectiles = allProjectiles, soundEvents = allEvents }
 
 updateTower :: Float -> World -> Tower -> Tower
 updateTower dt world tower =

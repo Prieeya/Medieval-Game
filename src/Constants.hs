@@ -47,11 +47,11 @@ gateWidth = 80
 -- ============================================================================
 
 castleX, castleY :: Float
-castleX = fortCenterX + 100
+castleX = fortRight - 100  -- Moved to right edge of fort with small gap from edge
 castleY = 0
 
 castleSize :: Float
-castleSize = 120  -- Larger base size for castle
+castleSize = 180  -- Much larger castle size for impressive medieval look
 
 -- ============================================================================
 -- Wave & Level Constants
@@ -99,11 +99,13 @@ enemyStats Direwolf = (40, 0, 140, 6, 25, 1.0)        -- Ultra-fast low HP (redu
 enemyStats Shieldbearer = (120, 8, 60, 8, 40, 2.0)     -- Projectile-resistant tank (reduced range from 25 to 8)
 enemyStats Pyromancer = (80, 2, 55, 200, 15, 2.0)      -- Ranged caster (burns towers) - keep range
 enemyStats Necromancer = (100, 3, 50, 180, 20, 2.5)    -- Summoner - keep range
+enemyStats TrapBreaker = (90, 4, 65, 8, 50, 1.5)       -- Anti-trap unit
+enemyStats WallClimber = (50, 0, 80, 8, 30, 1.0)       -- Fast climber, weak
 enemyStats BoulderRamCrew = (250, 10, 50, 12, 150, 3.0) -- Anti-castle siege ram (reduced range from 30 to 12)
--- Bosses (Every 3 Levels)
-enemyStats IronbackMinotaur = (600, 15, 55, 15, 100, 2.5)  -- Tank boss (reduced range from 35 to 15)
-enemyStats FireDrake = (750, 12, 65, 250, 150, 2.0)        -- Ranged fire AoE boss - keep range
-enemyStats LichKingArcthros = (900, 18, 50, 220, 120, 3.0) -- Summoner + debuffer - keep range
+-- Bosses (Every 3 Levels) - Made much harder
+enemyStats IronbackMinotaur = (1200, 25, 60, 15, 150, 2.0)  -- Tank boss - doubled HP, more armor, faster attacks
+enemyStats FireDrake = (1500, 20, 70, 250, 200, 1.8)       -- Ranged fire AoE boss - doubled HP, more damage
+enemyStats LichKingArcthros = (1800, 30, 55, 220, 180, 2.5) -- Summoner + debuffer - tripled HP, high armor
 
 -- (hp, armor, speed, attackRange, damage, attackCooldown)
 
@@ -115,6 +117,8 @@ enemyGoldValue Direwolf = 12         -- Fast Runner
 enemyGoldValue Shieldbearer = 18     -- Armored Unit
 enemyGoldValue Pyromancer = 25       -- Ranged Caster
 enemyGoldValue Necromancer = 30      -- Summoner
+enemyGoldValue TrapBreaker = 35        -- Anti-trap
+enemyGoldValue WallClimber = 20        -- Climber
 enemyGoldValue BoulderRamCrew = 40   -- Siege Unit
 -- Boss Units (Every 3 Levels)
 enemyGoldValue IronbackMinotaur = 100   -- Boss Level 3
@@ -203,7 +207,13 @@ abilityDurations TimeSlow = 8.0
 -- ============================================================================
 
 gateMaxHP :: Float
-gateMaxHP = 3000
+gateMaxHP = 5000  -- Increased from 3000
+
+gateUpgradeBaseCost :: Int
+gateUpgradeBaseCost = 200
+
+gateHPPerLevel :: Float
+gateHPPerLevel = 1000
 
 wallMaxHP :: Float
 wallMaxHP = 600
