@@ -5,6 +5,7 @@ import Types
 import Constants hiding (gateMaxHP, castleMaxHP, towerMaxHP, castleSize, gateWidth)
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as S
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef (newIORef, readIORef, writeIORef, IORef)
 import qualified Data.IORef as IORef
@@ -29,6 +30,9 @@ stoneGray = makeColor 0.5 0.5 0.5 1
 
 darkStoneGray :: Color
 darkStoneGray = makeColor 0.3 0.3 0.3 1
+
+silver :: Color
+silver = makeColor 0.75 0.75 0.75 1
 
 gold :: Color
 gold = makeColor 1.0 0.84 0.0 1
@@ -265,10 +269,10 @@ renderCastle :: World -> Picture
 renderCastle world =
   let c = castle world
       (x, y) = castlePos c
-      size = castleSize c * 4.0  -- Much larger castle matching JSON description
+      size = castleSize c * 2.5  -- Large impressive medieval castle
   in pictures
     [ renderPixelCastle x y size
-    , translate x (y + size/2 + 2) $ renderHealthBar (castleHP c) (castleMaxHP c) (size * 0.8)
+    , translate x (y + size/2 + 10) $ renderHealthBar (castleHP c) (castleMaxHP c) (size * 0.6)
     ]
 
 -- ============================================================================
@@ -340,6 +344,18 @@ renderEnemySpriteShape Necromancer _ size =
     , color (makeColor 0.3 0.3 0.35 1) $ rectangleSolid (size * 1.1) (size * 1.3)
     , color (makeColor 0.5 0.5 0.6 1) $ translate 0 (size * 0.6) $ circleSolid (size * 0.25)
     ]
+renderEnemySpriteShape TrapBreaker _ size =
+  pictures
+    [ color (makeColor 0.2 0.5 0.2 1) $ rectangleSolid (size * 1.2) (size * 1.2)
+    , color brown $ rectangleSolid (size * 1.0) (size * 1.0)
+    , color red $ translate 0 (-size * 0.2) $ rectangleSolid (size * 1.4) (size * 0.4) -- Backpack
+    ]
+renderEnemySpriteShape WallClimber _ size =
+  pictures
+    [ color (makeColor 0.1 0.1 0.1 1) $ rectangleSolid (size * 1.0) (size * 1.4)
+    , color darkStoneGray $ circleSolid (size * 0.4)
+    , color silver $ translate (-size * 0.3) 0 $ rectangleSolid (size * 0.1) (size * 0.6) -- Hook
+    ]
 renderEnemySpriteShape BoulderRamCrew _ size =
   pictures
     [ color darkBrown $ rectangleSolid (size * 2.2) (size * 1.8)
@@ -380,6 +396,8 @@ enemyTypeColor Direwolf = makeColor 0.2 0.2 0.2 1
 enemyTypeColor Shieldbearer = makeColor 0.5 0.5 0.6 1
 enemyTypeColor Pyromancer = makeColor 0.8 0.3 0.1 1
 enemyTypeColor Necromancer = makeColor 0.3 0.3 0.4 1
+enemyTypeColor TrapBreaker = makeColor 0.2 0.5 0.2 1
+enemyTypeColor WallClimber = makeColor 0.1 0.1 0.1 1
 enemyTypeColor BoulderRamCrew = makeColor 0.4 0.3 0.3 1
 enemyTypeColor IronbackMinotaur = makeColor 0.7 0.4 0.2 1
 enemyTypeColor FireDrake = makeColor 0.8 0.2 0.1 1
@@ -585,7 +603,23 @@ renderTrap currentTime trap =
       -- Always render pixel art fallback first, then sprite on top (if loaded)
       -- This ensures traps are always visible even if sprites fail to load
       fallbackSprite = renderTrapSprite (trapType trap) size
-  in translate x y $ pictures [fallbackSprite, sprite]
+      -- Add visual indicator if trap is active/triggered
+      activeIndicator = if trapTriggered trap || not (S.null (trapAffectedEnemies trap))
+                       then renderTrapActiveIndicator (trapType trap) size
+                       else blank
+  in translate x y $ pictures [fallbackSprite, sprite, activeIndicator]
+
+-- Visual indicator when trap is active/triggered
+renderTrapActiveIndicator :: TrapType -> Float -> Picture
+renderTrapActiveIndicator trapType size =
+  let pulse = sin (size * 0.1) * 0.3 + 0.7  -- Pulsing effect
+      indicatorColor = case trapType of
+        SpikeTrap -> makeColor 1 0.5 0.5 (0.6 * pulse)
+        FreezeTrap -> makeColor 0.5 0.8 1 (0.6 * pulse)
+        FirePitTrap -> makeColor 1 0.6 0.2 (0.7 * pulse)
+        MagicSnareTrap -> makeColor 0.8 0.5 1 (0.6 * pulse)
+        ExplosiveBarrel -> makeColor 1 0.3 0.1 (0.8 * pulse)
+  in color indicatorColor $ circleSolid (size * 1.2)
 
 renderTrapSprite :: TrapType -> Float -> Picture
 renderTrapSprite SpikeTrap size =

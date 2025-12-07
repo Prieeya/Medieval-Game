@@ -364,6 +364,48 @@ renderPixelEnemy Necromancer AnimIdle size =
                ]
   in drawPixelSprite pixelSize (pixelColor "black") pixels
 
+renderPixelEnemy TrapBreaker AnimIdle size =
+  let pixelSize = size / 8
+      -- "Goblin Sapper with pickaxe and explosives backpack"
+      pixels = [ -- Head (goblin)
+                 (0, -3, "green")
+               , (-1, -3, "green"), (1, -3, "green")  -- Ears
+               , (0, -2, "green")
+               -- Goggles
+               , (-1, -2, "black"), (1, -2, "black")
+               -- Body
+               , (-1, -1, "brown"), (0, -1, "tan"), (1, -1, "brown")
+               , (-1, 0, "brown"), (0, 0, "tan"), (1, 0, "brown")
+               -- Backpack (explosives)
+               , (-2, -1, "red"), (2, -1, "red")
+               , (-2, 0, "red"), (2, 0, "red")
+               -- Legs
+               , (-1, 1, "brown"), (1, 1, "brown")
+               , (-1, 2, "brown"), (1, 2, "brown")
+               -- Pickaxe
+               , (2, 1, "silver"), (2, 2, "brown"), (3, 1, "silver")
+               ]
+  in drawPixelSprite pixelSize (pixelColor "black") pixels
+
+renderPixelEnemy WallClimber AnimIdle size =
+  let pixelSize = size / 8
+      -- "Ninja climber in dark gear"
+      pixels = [ -- Head
+                 (0, -3, "black")
+               , (-1, -3, "dark gray")  -- Mask
+               , (-1, -4, "black"), (0, -4, "black"), (1, -4, "black")  -- Hood
+               -- Body
+               , (-1, -2, "dark gray"), (0, -2, "black"), (1, -2, "dark gray")
+               , (-1, -1, "black"), (0, -1, "dark gray"), (1, -1, "black")
+               , (-1, 0, "dark gray"), (0, 0, "black"), (1, 0, "dark gray")
+               -- Legs
+               , (-1, 1, "black"), (1, 1, "black")
+               , (-1, 2, "black"), (1, 2, "black")
+               -- Climbing Hooks
+               , (-2, 1, "silver"), (2, 1, "silver")
+               ]
+  in drawPixelSprite pixelSize (pixelColor "black") pixels
+
 renderPixelEnemy BoulderRamCrew AnimIdle size =
   let pixelSize = size / 10  -- Larger for siege unit
       -- "troop pushing wooden battering ram" - JSON spec
@@ -649,68 +691,142 @@ renderPixelFort centerX centerY width height =
   in pictures $ map (\(px, py, col) -> translate px py $ color (pixelColor col) $ rectangleSolid pixelSize pixelSize) fortPixels
 
 -- Render pixel art castle - FRONT VIEW (not top-down)
+-- Realistic medieval castle with multiple towers, grand entrance, and detailed stonework
 renderPixelCastle :: Float -> Float -> Float -> Picture
 renderPixelCastle x y size =
-  let pixelSize = size / 14  -- Grid for front view
-      -- Front-facing medieval castle: towers on sides, gate in center, battlements on top
-      -- Y increases upward, X is horizontal
-      castlePixels = [ -- Foundation/base (bottom row, ground level)
-                       (-6, -6, "dark gray"), (-5, -6, "gray"), (-4, -6, "dark gray"), (-3, -6, "gray"), (-2, -6, "dark gray"), (-1, -6, "gray"), (0, -6, "dark gray"), (1, -6, "gray"), (2, -6, "dark gray"), (3, -6, "gray"), (4, -6, "dark gray"), (5, -6, "gray"), (6, -6, "dark gray")
-                     , (-6, -5, "gray"), (-5, -5, "dark gray"), (-4, -5, "gray"), (-3, -5, "dark gray"), (-2, -5, "gray"), (-1, -5, "dark gray"), (0, -5, "gray"), (1, -5, "dark gray"), (2, -5, "gray"), (3, -5, "dark gray"), (4, -5, "gray"), (5, -5, "dark gray"), (6, -5, "gray")
-                     -- Left tower base
-                     , (-6, -4, "dark gray"), (-5, -4, "gray"), (-4, -4, "dark gray")
-                     , (-6, -3, "gray"), (-5, -3, "dark gray"), (-4, -3, "gray")
-                     -- Left tower body (vertical)
-                     , (-5, -2, "gray"), (-5, -1, "dark gray"), (-5, 0, "gray"), (-5, 1, "dark gray"), (-5, 2, "gray"), (-5, 3, "dark gray"), (-5, 4, "gray"), (-5, 5, "dark gray")
-                     , (-6, -2, "dark gray"), (-4, -2, "dark gray"), (-6, -1, "gray"), (-4, -1, "gray"), (-6, 0, "dark gray"), (-4, 0, "dark gray"), (-6, 1, "gray"), (-4, 1, "gray"), (-6, 2, "dark gray"), (-4, 2, "dark gray"), (-6, 3, "gray"), (-4, 3, "gray"), (-6, 4, "dark gray"), (-4, 4, "dark gray"), (-6, 5, "gray"), (-4, 5, "gray")
-                     -- Left tower battlements
-                     , (-5, 6, "dark gray"), (-6, 6, "gray"), (-4, 6, "gray")
-                     -- Left tower conical roof
-                     , (-5, 7, "gray"), (-6, 7, "dark gray"), (-4, 7, "dark gray")
-                     , (-5, 8, "dark gray")
-                     -- Center gate area (main keep)
-                     , (-3, -4, "gray"), (-2, -4, "dark gray"), (-1, -4, "gray"), (0, -4, "dark gray"), (1, -4, "gray"), (2, -4, "dark gray"), (3, -4, "gray")
-                     , (-3, -3, "dark gray"), (-2, -3, "gray"), (-1, -3, "dark gray"), (0, -3, "gray"), (1, -3, "dark gray"), (2, -3, "gray"), (3, -3, "dark gray")
-                     -- Main keep walls
-                     , (-3, -2, "gray"), (-2, -2, "dark gray"), (-1, -2, "gray"), (0, -2, "dark gray"), (1, -2, "gray"), (2, -2, "dark gray"), (3, -2, "gray")
-                     , (-3, -1, "dark gray"), (-2, -1, "gray"), (-1, -1, "dark gray"), (0, -1, "gray"), (1, -1, "dark gray"), (2, -1, "gray"), (3, -1, "dark gray")
-                     , (-3, 0, "gray"), (-2, 0, "dark gray"), (-1, 0, "gray"), (0, 0, "dark gray"), (1, 0, "gray"), (2, 0, "dark gray"), (3, 0, "gray")
-                     , (-3, 1, "dark gray"), (-2, 1, "gray"), (-1, 1, "dark gray"), (0, 1, "gray"), (1, 1, "dark gray"), (2, 1, "gray"), (3, 1, "dark gray")
-                     , (-3, 2, "gray"), (-2, 2, "dark gray"), (-1, 2, "gray"), (0, 2, "dark gray"), (1, 2, "gray"), (2, 2, "dark gray"), (3, 2, "gray")
-                     , (-3, 3, "dark gray"), (-2, 3, "gray"), (-1, 3, "dark gray"), (0, 3, "gray"), (1, 3, "dark gray"), (2, 3, "gray"), (3, 3, "dark gray")
-                     -- Main keep battlements
-                     , (-3, 4, "gray"), (-2, 4, "dark gray"), (-1, 4, "gray"), (0, 4, "dark gray"), (1, 4, "gray"), (2, 4, "dark gray"), (3, 4, "gray")
-                     -- Center tower (keep)
-                     , (-1, 4, "gray"), (0, 4, "dark gray"), (1, 4, "gray")
-                     , (-1, 5, "dark gray"), (0, 5, "gray"), (1, 5, "dark gray")
-                     , (-1, 6, "gray"), (0, 6, "dark gray"), (1, 6, "gray")
-                     , (-1, 7, "dark gray"), (0, 7, "gray"), (1, 7, "dark gray")
-                     , (0, 8, "gray")  -- Conical roof peak
-                     -- Right tower base
-                     , (4, -4, "dark gray"), (5, -4, "gray"), (6, -4, "dark gray")
-                     , (4, -3, "gray"), (5, -3, "dark gray"), (6, -3, "gray")
-                     -- Right tower body (vertical)
-                     , (5, -2, "gray"), (5, -1, "dark gray"), (5, 0, "gray"), (5, 1, "dark gray"), (5, 2, "gray"), (5, 3, "dark gray"), (5, 4, "gray"), (5, 5, "dark gray")
-                     , (4, -2, "dark gray"), (6, -2, "dark gray"), (4, -1, "gray"), (6, -1, "gray"), (4, 0, "dark gray"), (6, 0, "dark gray"), (4, 1, "gray"), (6, 1, "gray"), (4, 2, "dark gray"), (6, 2, "dark gray"), (4, 3, "gray"), (6, 3, "gray"), (4, 4, "dark gray"), (6, 4, "dark gray"), (4, 5, "gray"), (6, 5, "gray")
-                     -- Right tower battlements
-                     , (5, 6, "dark gray"), (4, 6, "gray"), (6, 6, "gray")
-                     -- Right tower conical roof
-                     , (5, 7, "gray"), (4, 7, "dark gray"), (6, 7, "dark gray")
-                     , (5, 8, "dark gray")
-                     -- Gate (wooden door in center)
-                     , (-2, -2, "brown"), (-1, -2, "dark brown"), (0, -2, "brown"), (1, -2, "dark brown"), (2, -2, "brown")
-                     , (-2, -1, "dark brown"), (-1, -1, "brown"), (0, -1, "silver"), (1, -1, "brown"), (2, -1, "dark brown")
-                     , (-2, 0, "brown"), (-1, 0, "dark brown"), (0, 0, "brown"), (1, 0, "dark brown"), (2, 0, "brown")
-                     -- Windows (left and right of gate)
-                     , (-4, 0, "light blue"), (-4, 1, "light blue")
-                     , (4, 0, "light blue"), (4, 1, "light blue")
-                     -- Window frames
-                     , (-4, 0, "dark gray"), (-4, 1, "dark gray")
-                     , (4, 0, "dark gray"), (4, 1, "dark gray")
-                     -- Flags/banners
-                     , (-5, 4, "red"), (-4, 4, "red")
-                     , (4, 4, "red"), (5, 4, "red")
-                     , (0, 5, "blue")
-                     ]
+  let pixelSize = size / 20  -- Larger grid for more detail
+      -- Grand medieval castle: twin flanking towers, central keep with tall spire, 
+      -- arched entrance, crenellated battlements, stone texture
+      castlePixels = 
+        -- ===================== FOUNDATION =====================
+        -- Thick stone foundation base
+        [ (-9, -9, "dark gray"), (-8, -9, "gray"), (-7, -9, "dark gray"), (-6, -9, "gray"), (-5, -9, "dark gray"), (-4, -9, "gray"), (-3, -9, "dark gray"), (-2, -9, "gray"), (-1, -9, "dark gray"), (0, -9, "gray"), (1, -9, "dark gray"), (2, -9, "gray"), (3, -9, "dark gray"), (4, -9, "gray"), (5, -9, "dark gray"), (6, -9, "gray"), (7, -9, "dark gray"), (8, -9, "gray"), (9, -9, "dark gray")
+        , (-9, -8, "gray"), (-8, -8, "dark gray"), (-7, -8, "gray"), (-6, -8, "dark gray"), (-5, -8, "gray"), (-4, -8, "dark gray"), (-3, -8, "gray"), (-2, -8, "dark gray"), (-1, -8, "gray"), (0, -8, "dark gray"), (1, -8, "gray"), (2, -8, "dark gray"), (3, -8, "gray"), (4, -8, "dark gray"), (5, -8, "gray"), (6, -8, "dark gray"), (7, -8, "gray"), (8, -8, "dark gray"), (9, -8, "gray")
+        
+        -- ===================== LEFT TOWER (Round) =====================
+        -- Left tower base (wider)
+        , (-9, -7, "dark gray"), (-8, -7, "gray"), (-7, -7, "dark gray"), (-6, -7, "gray")
+        , (-9, -6, "gray"), (-8, -6, "dark gray"), (-7, -6, "gray"), (-6, -6, "dark gray")
+        -- Left tower body
+        , (-9, -5, "dark gray"), (-8, -5, "gray"), (-7, -5, "dark gray"), (-6, -5, "gray")
+        , (-9, -4, "gray"), (-8, -4, "dark gray"), (-7, -4, "gray"), (-6, -4, "dark gray")
+        , (-9, -3, "dark gray"), (-8, -3, "gray"), (-7, -3, "dark gray"), (-6, -3, "gray")
+        , (-9, -2, "gray"), (-8, -2, "dark gray"), (-7, -2, "gray"), (-6, -2, "dark gray")
+        , (-9, -1, "dark gray"), (-8, -1, "gray"), (-7, -1, "dark gray"), (-6, -1, "gray")
+        , (-9, 0, "gray"), (-8, 0, "dark gray"), (-7, 0, "gray"), (-6, 0, "dark gray")
+        , (-9, 1, "dark gray"), (-8, 1, "gray"), (-7, 1, "dark gray"), (-6, 1, "gray")
+        , (-9, 2, "gray"), (-8, 2, "dark gray"), (-7, 2, "gray"), (-6, 2, "dark gray")
+        , (-9, 3, "dark gray"), (-8, 3, "gray"), (-7, 3, "dark gray"), (-6, 3, "gray")
+        , (-9, 4, "gray"), (-8, 4, "dark gray"), (-7, 4, "gray"), (-6, 4, "dark gray")
+        , (-9, 5, "dark gray"), (-8, 5, "gray"), (-7, 5, "dark gray"), (-6, 5, "gray")
+        -- Left tower window
+        , (-8, 0, "light blue"), (-7, 0, "light blue"), (-8, 1, "light blue"), (-7, 1, "light blue")
+        -- Left tower battlements (crenellations)
+        , (-9, 6, "gray"), (-7, 6, "gray"), (-6, 6, "gray")
+        , (-8, 6, "dark gray")  -- Merlon gap
+        -- Left tower conical roof
+        , (-9, 7, "brown"), (-8, 7, "dark brown"), (-7, 7, "brown"), (-6, 7, "dark brown")
+        , (-8, 8, "brown"), (-7, 8, "dark brown")
+        , (-8, 9, "dark brown")
+        , (-8, 10, "brown")  -- Spire tip
+        -- Left tower flag
+        , (-8, 11, "red"), (-7, 11, "red"), (-6, 11, "red")
+        
+        -- ===================== RIGHT TOWER (Round) =====================
+        -- Right tower base (wider)
+        , (6, -7, "gray"), (7, -7, "dark gray"), (8, -7, "gray"), (9, -7, "dark gray")
+        , (6, -6, "dark gray"), (7, -6, "gray"), (8, -6, "dark gray"), (9, -6, "gray")
+        -- Right tower body
+        , (6, -5, "gray"), (7, -5, "dark gray"), (8, -5, "gray"), (9, -5, "dark gray")
+        , (6, -4, "dark gray"), (7, -4, "gray"), (8, -4, "dark gray"), (9, -4, "gray")
+        , (6, -3, "gray"), (7, -3, "dark gray"), (8, -3, "gray"), (9, -3, "dark gray")
+        , (6, -2, "dark gray"), (7, -2, "gray"), (8, -2, "dark gray"), (9, -2, "gray")
+        , (6, -1, "gray"), (7, -1, "dark gray"), (8, -1, "gray"), (9, -1, "dark gray")
+        , (6, 0, "dark gray"), (7, 0, "gray"), (8, 0, "dark gray"), (9, 0, "gray")
+        , (6, 1, "gray"), (7, 1, "dark gray"), (8, 1, "gray"), (9, 1, "dark gray")
+        , (6, 2, "dark gray"), (7, 2, "gray"), (8, 2, "dark gray"), (9, 2, "gray")
+        , (6, 3, "gray"), (7, 3, "dark gray"), (8, 3, "gray"), (9, 3, "dark gray")
+        , (6, 4, "dark gray"), (7, 4, "gray"), (8, 4, "dark gray"), (9, 4, "gray")
+        , (6, 5, "gray"), (7, 5, "dark gray"), (8, 5, "gray"), (9, 5, "dark gray")
+        -- Right tower window
+        , (7, 0, "light blue"), (8, 0, "light blue"), (7, 1, "light blue"), (8, 1, "light blue")
+        -- Right tower battlements
+        , (6, 6, "gray"), (8, 6, "gray"), (9, 6, "gray")
+        , (7, 6, "dark gray")  -- Merlon gap
+        -- Right tower conical roof
+        , (6, 7, "dark brown"), (7, 7, "brown"), (8, 7, "dark brown"), (9, 7, "brown")
+        , (7, 8, "dark brown"), (8, 8, "brown")
+        , (7, 9, "brown")
+        , (7, 10, "dark brown")  -- Spire tip
+        -- Right tower flag
+        , (6, 11, "blue"), (7, 11, "blue"), (8, 11, "blue")
+        
+        -- ===================== MAIN KEEP (Center) =====================
+        -- Main keep walls (between towers)
+        , (-5, -7, "dark gray"), (-4, -7, "gray"), (-3, -7, "dark gray"), (-2, -7, "gray"), (-1, -7, "dark gray"), (0, -7, "gray"), (1, -7, "dark gray"), (2, -7, "gray"), (3, -7, "dark gray"), (4, -7, "gray"), (5, -7, "dark gray")
+        , (-5, -6, "gray"), (-4, -6, "dark gray"), (-3, -6, "gray"), (-2, -6, "dark gray"), (-1, -6, "gray"), (0, -6, "dark gray"), (1, -6, "gray"), (2, -6, "dark gray"), (3, -6, "gray"), (4, -6, "dark gray"), (5, -6, "gray")
+        , (-5, -5, "dark gray"), (-4, -5, "gray"), (-3, -5, "dark gray"), (-2, -5, "gray"), (-1, -5, "dark gray"), (0, -5, "gray"), (1, -5, "dark gray"), (2, -5, "gray"), (3, -5, "dark gray"), (4, -5, "gray"), (5, -5, "dark gray")
+        , (-5, -4, "gray"), (-4, -4, "dark gray"), (-3, -4, "gray"), (-2, -4, "dark gray"), (-1, -4, "gray"), (0, -4, "dark gray"), (1, -4, "gray"), (2, -4, "dark gray"), (3, -4, "gray"), (4, -4, "dark gray"), (5, -4, "gray")
+        , (-5, -3, "dark gray"), (-4, -3, "gray"), (-3, -3, "dark gray"), (-2, -3, "gray"), (-1, -3, "dark gray"), (0, -3, "gray"), (1, -3, "dark gray"), (2, -3, "gray"), (3, -3, "dark gray"), (4, -3, "gray"), (5, -3, "dark gray")
+        , (-5, -2, "gray"), (-4, -2, "dark gray"), (-3, -2, "gray"), (-2, -2, "dark gray"), (-1, -2, "gray"), (0, -2, "dark gray"), (1, -2, "gray"), (2, -2, "dark gray"), (3, -2, "gray"), (4, -2, "dark gray"), (5, -2, "gray")
+        , (-5, -1, "dark gray"), (-4, -1, "gray"), (-3, -1, "dark gray"), (-2, -1, "gray"), (-1, -1, "dark gray"), (0, -1, "gray"), (1, -1, "dark gray"), (2, -1, "gray"), (3, -1, "dark gray"), (4, -1, "gray"), (5, -1, "dark gray")
+        , (-5, 0, "gray"), (-4, 0, "dark gray"), (-3, 0, "gray"), (-2, 0, "dark gray"), (-1, 0, "gray"), (0, 0, "dark gray"), (1, 0, "gray"), (2, 0, "dark gray"), (3, 0, "gray"), (4, 0, "dark gray"), (5, 0, "gray")
+        , (-5, 1, "dark gray"), (-4, 1, "gray"), (-3, 1, "dark gray"), (-2, 1, "gray"), (-1, 1, "dark gray"), (0, 1, "gray"), (1, 1, "dark gray"), (2, 1, "gray"), (3, 1, "dark gray"), (4, 1, "gray"), (5, 1, "dark gray")
+        , (-5, 2, "gray"), (-4, 2, "dark gray"), (-3, 2, "gray"), (-2, 2, "dark gray"), (-1, 2, "gray"), (0, 2, "dark gray"), (1, 2, "gray"), (2, 2, "dark gray"), (3, 2, "gray"), (4, 2, "dark gray"), (5, 2, "gray")
+        , (-5, 3, "dark gray"), (-4, 3, "gray"), (-3, 3, "dark gray"), (-2, 3, "gray"), (-1, 3, "dark gray"), (0, 3, "gray"), (1, 3, "dark gray"), (2, 3, "gray"), (3, 3, "dark gray"), (4, 3, "gray"), (5, 3, "dark gray")
+        
+        -- Main keep battlements (crenellations)
+        , (-5, 4, "gray"), (-3, 4, "gray"), (-1, 4, "gray"), (1, 4, "gray"), (3, 4, "gray"), (5, 4, "gray")
+        , (-4, 4, "dark gray"), (-2, 4, "dark gray"), (0, 4, "dark gray"), (2, 4, "dark gray"), (4, 4, "dark gray")  -- Merlon gaps
+        
+        -- ===================== CENTRAL TOWER (Tallest) =====================
+        -- Central tower rises above main keep
+        , (-3, 5, "gray"), (-2, 5, "dark gray"), (-1, 5, "gray"), (0, 5, "dark gray"), (1, 5, "gray"), (2, 5, "dark gray"), (3, 5, "gray")
+        , (-3, 6, "dark gray"), (-2, 6, "gray"), (-1, 6, "dark gray"), (0, 6, "gray"), (1, 6, "dark gray"), (2, 6, "gray"), (3, 6, "dark gray")
+        , (-3, 7, "gray"), (-2, 7, "dark gray"), (-1, 7, "gray"), (0, 7, "dark gray"), (1, 7, "gray"), (2, 7, "dark gray"), (3, 7, "gray")
+        , (-2, 8, "dark gray"), (-1, 8, "gray"), (0, 8, "dark gray"), (1, 8, "gray"), (2, 8, "dark gray")
+        , (-2, 9, "gray"), (-1, 9, "dark gray"), (0, 9, "gray"), (1, 9, "dark gray"), (2, 9, "gray")
+        -- Central tower window
+        , (-1, 6, "light blue"), (0, 6, "light blue"), (1, 6, "light blue")
+        , (0, 7, "light blue")
+        -- Central tower battlements
+        , (-2, 10, "gray"), (0, 10, "gray"), (2, 10, "gray")
+        , (-1, 10, "dark gray"), (1, 10, "dark gray")  -- Merlon gaps
+        -- Central tower tall spire
+        , (-2, 11, "brown"), (-1, 11, "dark brown"), (0, 11, "brown"), (1, 11, "dark brown"), (2, 11, "brown")
+        , (-1, 12, "dark brown"), (0, 12, "brown"), (1, 12, "dark brown")
+        , (0, 13, "brown")
+        , (0, 14, "dark brown")
+        , (0, 15, "yellow")  -- Golden spire tip
+        -- Royal banner on central tower
+        , (1, 14, "red"), (2, 14, "red"), (3, 14, "red")
+        , (1, 13, "yellow"), (2, 13, "yellow")
+        
+        -- ===================== GRAND ENTRANCE (Arched) =====================
+        -- Arched entrance with portcullis
+        , (-2, -7, "dark brown"), (-1, -7, "brown"), (0, -7, "dark brown"), (1, -7, "brown"), (2, -7, "dark brown")
+        , (-2, -6, "brown"), (-1, -6, "dark brown"), (0, -6, "brown"), (1, -6, "dark brown"), (2, -6, "brown")
+        , (-2, -5, "dark brown"), (-1, -5, "brown"), (0, -5, "dark brown"), (1, -5, "brown"), (2, -5, "dark brown")
+        , (-2, -4, "brown"), (-1, -4, "dark brown"), (0, -4, "brown"), (1, -4, "dark brown"), (2, -4, "brown")
+        -- Arch top (rounded)
+        , (-1, -3, "gray"), (0, -3, "dark gray"), (1, -3, "gray")
+        -- Portcullis (iron grate)
+        , (-1, -6, "iron gray"), (0, -6, "iron gray"), (1, -6, "iron gray")
+        , (-1, -5, "iron gray"), (0, -5, "iron gray"), (1, -5, "iron gray")
+        , (-1, -4, "iron gray"), (0, -4, "iron gray"), (1, -4, "iron gray")
+        -- Door handle
+        , (1, -5, "silver")
+        
+        -- ===================== DECORATIVE ELEMENTS =====================
+        -- Arrow slits on main keep
+        , (-4, 0, "black"), (-4, 1, "black")
+        , (4, 0, "black"), (4, 1, "black")
+        -- Stone texture accents
+        , (-3, -1, "silver"), (3, -1, "silver")  -- Decorative stones
+        , (-5, 2, "silver"), (5, 2, "silver")
+        -- Torch brackets
+        , (-3, -5, "orange"), (3, -5, "orange")
+        , (-3, -4, "yellow"), (3, -4, "yellow")
+        ]
   in translate x y $ drawPixelSprite pixelSize (pixelColor "black") castlePixels
 

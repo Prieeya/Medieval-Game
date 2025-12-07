@@ -13,6 +13,9 @@ import Assets (loadAllSprites)
 import Rendering.SpriteAnimation (globalAssets)
 import Data.IORef (writeIORef, newIORef, readIORef)
 import Audio.Music
+import Audio.AudioCore (playSounds, initAudio, cleanupAudio)
+import qualified Data.Map.Strict as M
+import System.Exit (exitSuccess)
 
 -- ============================================================================
 -- Main Entry Point
@@ -29,8 +32,9 @@ main = do
   writeIORef globalAssets (Just assets)
   putStrLn "Assets loaded!"
   putStrLn ""
-  putStrLn "Initializing music..."
+  putStrLn "Initializing audio..."
   musicState <- initializeMusic
+  initAudio  -- Initialize sound effects system
   musicRef <- newIORef musicState
   if musicEnabled musicState && musicInitialized musicState
     then do
@@ -87,11 +91,61 @@ main = do
           else return ()
         return world'
     )
-    (\dt world -> return $ updateWorld dt world)
+    (\dt world -> do
+        -- Update music state (check if still playing, restart if needed)
+        musicState <- readIORef musicRef
+        musicState' <- updateMusicState musicState dt
+        
+        -- Update music intensity based on game state
+        let newIntensity = determineIntensity world
+        musicState'' <- if musicIntensity musicState' /= newIntensity
+                        then setMusicIntensity musicState' newIntensity
+                        else return musicState'
+        writeIORef musicRef musicState''
+        
+        -- Run game update logic (pure)
+        let world' = updateWorld dt world
+        
+        -- Process and play any queued sound events
+        playSounds (soundEvents world')
+        
+        -- Clear the sound event queue for the next frame
+        let world'' = world' { soundEvents = [] }
+        
+        -- Check for exit request
+        if shouldExit world''
+          then exitSuccess
+          else return world''
+    )
   
   -- Cleanup music on exit
   musicState <- readIORef musicRef
   cleanupMusic musicState
+  cleanupAudio
+
+-- ============================================================================
+-- Music Intensity Determination
+-- ============================================================================
+
+-- Determine music intensity based on current game state
+determineIntensity :: World -> MusicIntensity
+determineIntensity world
+  | isGameOver world = MusicDefeat
+  | isVictory world = MusicVictory
+  | isBossWave world = MusicIntense
+  | isWaveInProgress world = MusicNormal
+  | otherwise = MusicCalm
+  where
+    -- Check if current wave is a boss wave (every 3rd level has a boss)
+    isBossWave w = 
+      let level = wsLevel (waveState w)
+      in level `mod` 3 == 0 && isWaveInProgress w
+    
+    -- Check if enemies are currently attacking
+    isWaveInProgress w = 
+      case wsPhase (waveState w) of
+        InWave -> not (M.null (enemies w))
+        _ -> False
 
 -- ============================================================================
 -- Music Helper Functions

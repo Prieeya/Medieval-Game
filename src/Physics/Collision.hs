@@ -41,7 +41,12 @@ checkProjectileCollision (world, hitList) projectile =
                                   else M.delete (projectileId projectile') (projectiles world)
                    effect = ImpactFlash (enemyPos enemy) 0.2 0.2
                    effects' = effect : visualEffects world
-               in (world { enemies = enemies', projectiles = projectiles', visualEffects = effects' }, targetId : hitList)
+                   -- Queue hit sounds
+                   soundHit = SoundProjectileHit (projectileType projectile')
+                   -- Only play enemy hit sound sometimes to avoid spam, or always? Always for now.
+                   soundEnemy = SoundEnemyHit (enemyType enemy)
+                   events' = soundHit : soundEnemy : soundEvents world
+               in (world { enemies = enemies', projectiles = projectiles', visualEffects = effects', soundEvents = events' }, targetId : hitList)
              else
                -- Update projectile position and velocity
                let projectiles' = M.insert (projectileId projectile') projectile' (projectiles world)
@@ -68,7 +73,13 @@ checkEnemyFortCollision world enemy =
             effects' = effect : attackParticle : visualEffects world
             enemy' = enemy { enemyLastAttackTime = timeElapsed world }
             enemies' = M.insert (enemyId enemy) enemy' (enemies world)
-        in world { fort = fort', enemies = enemies', visualEffects = effects' }
+            -- Sounds
+            soundAttack = SoundEnemyAttack (enemyType enemy)
+            soundGate = if gateDestroyed gate' && not (gateDestroyed (fortGate (fort world))) 
+                        then SoundGateDestroyed 
+                        else SoundGateHit
+            events' = soundAttack : soundGate : soundEvents world
+        in world { fort = fort', enemies = enemies', visualEffects = effects', soundEvents = events' }
       else world
     
     AttackingTower tid ->
@@ -88,7 +99,12 @@ checkEnemyFortCollision world enemy =
                 towers' = if towerHP tower' <= 0
                          then M.delete tid (towers world)
                          else M.insert tid tower' (towers world)
-            in world { towers = towers', enemies = enemies', visualEffects = effects' }
+                -- Sounds
+                soundAttack = SoundEnemyAttack (enemyType enemy)
+                events = if towerHP tower' <= 0 
+                         then SoundTowerDestroyed : soundAttack : soundEvents world
+                         else soundAttack : soundEvents world
+            in world { towers = towers', enemies = enemies', visualEffects = effects', soundEvents = events }
       else world
     
     AttackingCastle ->
@@ -102,7 +118,11 @@ checkEnemyFortCollision world enemy =
             effects' = effect : attackParticle : visualEffects world
             enemy' = enemy { enemyLastAttackTime = timeElapsed world }
             enemies' = M.insert (enemyId enemy) enemy' (enemies world)
-        in world { castle = castle', enemies = enemies', visualEffects = effects' }
+            -- Sounds
+            soundAttack = SoundEnemyAttack (enemyType enemy)
+            soundCastle = SoundCastleHit
+            events' = soundAttack : soundCastle : soundEvents world
+        in world { castle = castle', enemies = enemies', visualEffects = effects', soundEvents = events' }
       else world
     
     _ -> world
@@ -126,17 +146,31 @@ triggerTrapOnEnemy (world, affected) enemy trap =
   then (world, affected)
   else
     let (trap', effects) = TrapSystem.triggerTrap (enemyId enemy) trap enemy
-        damage = trapDamage (trapType trap)
+        
+        -- Trap Breaker Logic: Disarms traps without taking damage
+        isTrapBreaker = enemyType enemy == TrapBreaker
+        damage = if isTrapBreaker then 0 else trapDamage (trapType trap)
+        
         enemy' = TrapSystem.applyTrapEffects trap' $ applyDamageToEnemy damage enemy
         
         traps' = M.insert (trapId trap) trap' (traps world)
         enemies' = M.insert (enemyId enemy) enemy' (enemies world)
         effects' = effects ++ visualEffects world
         
-        traps'' = if TrapSystem.shouldRemoveTrap trap'
+        traps'' = if isTrapBreaker || TrapSystem.shouldRemoveTrap trap'
                   then M.delete (trapId trap) traps'
                   else traps'
-    in (world { traps = traps'', enemies = enemies', visualEffects = effects' }, enemyId enemy : affected)
+        
+        -- Sound
+        soundTrap = SoundTrapTriggered
+        events' = soundTrap : soundEvents world
+        
+        -- Smart AI: If enemy dies, mark this trap location as dangerous
+        knownTraps' = if enemyHP enemy' <= 0
+                      then S.insert (trapPos trap) (knownTraps world)
+                      else knownTraps world
+        
+    in (world { traps = traps'', enemies = enemies', visualEffects = effects', soundEvents = events', knownTraps = knownTraps' }, enemyId enemy : affected)
 
 distance :: Vec2 -> Vec2 -> Float
 distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)

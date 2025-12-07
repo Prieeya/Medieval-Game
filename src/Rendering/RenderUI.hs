@@ -50,6 +50,10 @@ renderUI world = pictures
   , renderGameStatus world
   , renderWaveTimer world
   , renderGateRepairPrompt world
+  , renderQuitResetButtons world
+  , renderDialog world
+  , renderShop world
+  , renderHelpMenu world
   ]
 
 -- ============================================================================
@@ -471,3 +475,150 @@ renderGateRepairPrompt world =
              text "Press G to repair the gate for 50 gold"
          ]
      else blank
+
+-- ============================================================================
+-- Quit/Reset Buttons
+-- ============================================================================
+
+renderQuitResetButtons :: World -> Picture
+renderQuitResetButtons world =
+  let buttonY = worldHeight/2 - 30
+      quitX = worldWidth/2 - 80
+      resetX = worldWidth/2 - 80
+  in pictures
+    [ -- Quit Button
+      translate quitX (buttonY - 30) $ pictures
+        [ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 60 25
+        , color darkWoodBrown $ rectangleWire 60 25
+        , translate (-20) (-5) $ scale 0.1 0.1 $ color (makeColor 1 1 1 1) $ text "QUIT"
+        ]
+    , -- Reset Button
+      translate resetX (buttonY - 60) $ pictures
+        [ color (makeColor 0.2 0.6 0.8 1) $ rectangleSolid 60 25
+        , color darkWoodBrown $ rectangleWire 60 25
+        , translate (-20) (-5) $ scale 0.1 0.1 $ color (makeColor 1 1 1 1) $ text "RESET"
+        ]
+    ]
+
+-- ============================================================================
+-- Dialogs & Menus
+-- ============================================================================
+
+renderDialog :: World -> Picture
+renderDialog world =
+  case buildMode (inputState world) of
+    ConfirmationDialog msg _ _ ->
+      let panelW = 400
+          panelH = 200
+      in pictures
+        [ -- Dim background
+          color (makeColor 0 0 0 0.5) $ rectangleSolid worldWidth worldHeight
+        , -- Dialog Box
+          pictures
+            [ color parchment $ rectangleSolid panelW panelH
+            , color darkWoodBrown $ rectangleWire panelW panelH
+            , -- Message
+              translate (-150) 40 $ scale 0.2 0.2 $ color (makeColor 0 0 0 1) $ text msg
+            , -- Confirm Button (Green)
+              translate (-60) (-40) $ pictures
+                [ color (makeColor 0.2 0.8 0.2 1) $ rectangleSolid 80 40
+                , color darkWoodBrown $ rectangleWire 80 40
+                , translate (-25) (-5) $ scale 0.12 0.12 $ color (makeColor 1 1 1 1) $ text "YES"
+                ]
+            , -- Cancel Button (Red)
+              translate 60 (-40) $ pictures
+                [ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 80 40
+                , color darkWoodBrown $ rectangleWire 80 40
+                , translate (-20) (-5) $ scale 0.12 0.12 $ color (makeColor 1 1 1 1) $ text "NO"
+                ]
+            ]
+        ]
+    _ -> blank
+
+renderShop :: World -> Picture
+renderShop world =
+  case buildMode (inputState world) of
+    ShopMenu ->
+      let panelW = 600
+          panelH = 500
+          gold = resGold (resources world)
+      in pictures
+        [ -- Dim background
+          color (makeColor 0 0 0 0.5) $ rectangleSolid worldWidth worldHeight
+        , -- Shop Panel
+          pictures
+            [ color parchment $ rectangleSolid panelW panelH
+            , color darkWoodBrown $ rectangleWire panelW panelH
+            , -- Header
+              translate (-100) 200 $ scale 0.3 0.3 $ color darkWoodBrown $ text "SHOP"
+            , -- Close Button
+              translate (panelW/2 - 30) (panelH/2 - 30) $ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 40 40
+            , translate (panelW/2 - 40) (panelH/2 - 40) $ scale 0.2 0.2 $ color (makeColor 1 1 1 1) $ text "X"
+            , -- Content
+              translate (-250) 100 $ scale 0.15 0.15 $ color (makeColor 0 0 0 1) $ text "UPGRADES AVAILABLE:"
+            , translate (-250) 50 $ scale 0.15 0.15 $ color (makeColor 0 0 0 1) $ text "- New Towers (Level 5)"
+            , translate (-250) 0 $ scale 0.15 0.15 $ color (makeColor 0 0 0 1) $ text "- New Traps (Level 3)"
+            , translate (-250) (-50) $ scale 0.15 0.15 $ color (makeColor 0 0 0 1) $ text ("GOLD: " ++ show gold)
+            
+            , -- Unlock Button
+              if not (upgradeUnlocked $ upgradeUnlock world)
+              then translate 0 (-150) $ pictures
+                [ color (if gold >= 100 then makeColor 0.2 0.8 0.2 1 else makeColor 0.5 0.5 0.5 1) $ rectangleSolid 250 50
+                , color darkWoodBrown $ rectangleWire 250 50
+                , translate (-110) (-10) $ scale 0.15 0.15 $ color (makeColor 1 1 1 1) $ text "UNLOCK ALL (100g)"
+                ]
+              else translate 0 (-150) $ pictures
+                [ color (makeColor 0.2 0.6 0.2 1) $ rectangleSolid 250 50
+                , translate (-80) (-10) $ scale 0.15 0.15 $ color (makeColor 1 1 1 1) $ text "UNLOCKED!"
+                ]
+            ]
+        ]
+    _ -> blank
+
+renderHelpMenu :: World -> Picture
+renderHelpMenu world =
+  case buildMode (inputState world) of
+    HelpMenu ->
+      let panelW = 700
+          panelH = 600
+      in pictures
+        [ -- Dim background
+          color (makeColor 0 0 0 0.7) $ rectangleSolid worldWidth worldHeight
+        , -- Help Panel
+          pictures
+            [ color parchment $ rectangleSolid panelW panelH
+            , color darkWoodBrown $ rectangleWire panelW panelH
+            , -- Header
+              translate (-120) 250 $ scale 0.35 0.35 $ color darkWoodBrown $ text "GAME LEGEND & GUIDE"
+            , -- Close Button
+              translate (panelW/2 - 30) (panelH/2 - 30) $ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 40 40
+            , translate (panelW/2 - 40) (panelH/2 - 40) $ scale 0.2 0.2 $ color (makeColor 1 1 1 1) $ text "X"
+            , -- Content
+              translate (-300) 200 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TOWERS:"
+            , translate (-300) 180 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "4-Arrow  5-Catapult  6-Crossbow  7-Fire"
+            , translate (-300) 160 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "8-Tesla  9-Ballista  0-Poison  --Bombard"
+            , translate (-300) 130 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TRAPS:"
+            , translate (-300) 110 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Z-Spike  X-Freeze  C-Fire Pit  V-Magic Snare  N-Explosive"
+            , translate (-300) 80 $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "ENEMIES:"
+            , translate (-300) 60 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Grunt Raider - Basic melee unit"
+            , translate (-300) 40 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Shieldbearer - Armored tank"
+            , translate (-300) 20 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Direwolf - Fast runner"
+            , translate (-300) 0 $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Pyromancer - Ranged caster"
+            , translate (-300) (-20) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Brute Crusher - Heavy melee"
+            , translate (-300) (-40) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Trap Breaker - Disarms traps"
+            , translate (-300) (-60) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Wall Climber - Climbs walls (Archers only)"
+            , translate (-300) (-80) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Boulder Ram - Siege unit"
+            , translate (-300) (-110) $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "TRAP DESCRIPTIONS:"
+            , translate (-300) (-130) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Spike Trap - Instant damage, one-time use"
+            , translate (-300) (-150) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Freeze Trap - Slows enemies"
+            , translate (-300) (-170) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Fire Pit - Continuous fire damage"
+            , translate (-300) (-190) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Magic Snare - Roots enemies (0 speed)"
+            , translate (-300) (-210) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Explosive Barrel - Area damage, one-time"
+            , translate (-300) (-240) $ scale 0.12 0.12 $ color (makeColor 0 0 0 1) $ text "CONTROLS:"
+            , translate (-300) (-260) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "B - Shop Menu  M - This Help  H - Upgrade Gate"
+            , translate (-300) (-280) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "G - Repair Gate  U - Upgrade Tower (hover)"
+            , translate (-300) (-300) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Space - Pause  1/2/3 - Game Speed"
+            , translate (-300) (-320) $ scale 0.1 0.1 $ color (makeColor 0.2 0.2 0.2 1) $ text "Q/R - Quit/Reset (with confirmation)"
+            ]
+        ]
+    _ -> blank

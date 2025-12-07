@@ -1,87 +1,62 @@
-# Sound Effects Directory
+# Game Audio Setup
 
-This directory contains sound effect files for the Medieval Siege Defense game.
+The game's code expects specific .wav files in this directory (`assets/sounds/`).
+If files are missing, the game will run silently (no crash).
 
-## Required Sound Files
-
-The game expects the following sound files (in WAV format):
+## Required Sound Files (WAV Format)
 
 ### Tower Sounds
-- `tower_arrow_fire.wav` - Arrow tower firing
-- `tower_crossbow_fire.wav` - Crossbow tower firing
-- `tower_ballista_fire.wav` - Ballista tower firing
-- `tower_fire_fire.wav` - Fire tower firing
-- `tower_lightning_fire.wav` - Lightning/Tesla tower firing
-- `tower_catapult_fire.wav` - Catapult tower firing
-- `tower_cannon_fire.wav` - Cannon/Bombard tower firing
-- `tower_poison_fire.wav` - Poison tower firing
-- `tower_built.wav` - Tower construction sound
-- `tower_upgraded.wav` - Tower upgrade sound
+- `tower_arrow_fire.wav`      (Arrow Tower shooting)
+- `tower_catapult_fire.wav`   (Catapult firing)
+- `tower_crossbow_fire.wav`   (Crossbow firing)
+- `tower_fire_fire.wav`       (Fire Tower firing)
+- `tower_tesla_fire.wav`      (Tesla/Lightning Tower firing)
+- `tower_ballista_fire.wav`   (Ballista firing)
+- `tower_poison_fire.wav`     (Poison Tower firing)
+- `tower_bombard_fire.wav`    (Bombard firing)
+- `build_tower.wav`           (Placing a tower)
+- `sell_tower.wav`            (Selling a tower)
+- `upgrade_tower.wav`         (Upgrading a tower)
+- `structure_destroyed.wav`   (Tower destroyed)
 
-### Projectile Sounds
-- `projectile_arrow_hit.wav` - Arrow impact
-- `projectile_bolt_hit.wav` - Ballista bolt impact
-- `projectile_fireball_hit.wav` - Fireball impact
-- `projectile_ice_hit.wav` - Ice shard impact
-- `projectile_lightning_hit.wav` - Lightning bolt impact
-- `projectile_rock_hit.wav` - Catapult rock impact
-- `projectile_barrage_hit.wav` - Barrage shot impact
+### Combat & Impact
+- `hit_arrow.wav`             (Arrow hitting enemy)
+- `hit_heavy.wav`             (Heavy projectile hitting)
+- `hit_fire.wav`              (Fire damage)
+- `hit_ice.wav`               (Ice/Freeze damage)
+- `hit_lightning.wav`         (Lightning damage)
+- `hit_rock.wav`              (Rock/Catapult hit)
+- `enemy_hit.wav`             (Generic enemy hit)
+- `enemy_death.wav`           (Enemy dying)
+- `enemy_attack.wav`          (Enemy attacking wall/gate)
+- `trap_trigger.wav`          (Enemy stepping on trap)
 
-### Enemy Sounds
-- `enemy_death.wav` - Enemy death sound
-- `enemy_spawn.wav` - Enemy spawn sound
+### Fort & Structure
+- `gate_hit.wav`              (Gate taking damage)
+- `gate_destroyed.wav`        (Gate destroyed)
+- `repair.wav`                (Gate repaired)
+- `wall_hit.wav`              (Wall taking damage)
+- `castle_hit.wav`            (Castle taking damage)
 
-### Trap Sounds
-- `trap_spike.wav` - Spike trap trigger
-- `trap_freeze.wav` - Freeze trap trigger
-- `trap_fire.wav` - Fire pit trap trigger
-- `trap_magic.wav` - Magic snare trap trigger
-- `trap_explosive.wav` - Explosive barrel trigger
-- `trap_placed.wav` - Trap placement sound
+### UI & Gameplay
+- `wave_start.wav`            (Wave started)
+- `wave_complete.wav`         (Wave finished)
+- `level_complete.wav`        (Level finished)
+- `game_over.wav`             (Game Over / Defeat)
+- `victory.wav`               (Victory)
+- `ui_hover.wav`              (Mouse hover over button)
+- `ui_click.wav`              (Button click)
+- `ui_error.wav`              (Not enough gold / Invalid placement)
+- `upgrade_unlock.wav`        (Unlocking items in Shop)
 
-### Structure Sounds
-- `gate_hit.wav` - Gate taking damage
-- `gate_destroyed.wav` - Gate destruction
-- `castle_hit.wav` - Castle taking damage
+## Current Status
+✅ **Real sound files have been generated!** All 36 required sound files exist with actual audio content (tones, impacts, fire sounds, etc.). These are programmatically generated sounds that will play in the game.
 
-### Ability Sounds
-- `ability_firestorm.wav` - Firestorm ability
-- `ability_freeze.wav` - Freeze field ability
-- `ability_repair.wav` - Repair walls ability
-- `ability_slow.wav` - Time slow ability
+## Instructions (Optional - For Real Sound Effects)
+If you want actual sound effects instead of silence:
+1. Download sound effects from free sites (e.g., freesound.org, opengameart.org).
+2. Rename them to match the filenames above exactly.
+3. Replace the placeholder files in this folder.
+4. Re-run the game.
 
-### Wave/Level Sounds
-- `wave_start.wav` - Wave beginning
-- `wave_complete.wav` - Wave completion
-- `level_complete.wav` - Level completion
-
-### Game State Sounds
-- `victory.wav` - Victory music/sound
-- `defeat.wav` - Defeat music/sound
-
-### UI Sounds
-- `ui_click.wav` - Button click
-- `ui_coin.wav` - Coin collection
-- `error.wav` - Error sound
-
-## Audio Format
-
-- **Format**: WAV (uncompressed or compressed)
-- **Sample Rate**: 22050 Hz or 44100 Hz recommended
-- **Channels**: Mono or Stereo
-- **Bit Depth**: 16-bit recommended
-
-## Getting Sound Files
-
-You can:
-1. Create your own sound effects
-2. Use free sound libraries like:
-   - Freesound.org (https://freesound.org)
-   - OpenGameArt.org (https://opengameart.org)
-   - Zapsplat (https://www.zapsplat.com)
-   - Incompetech (https://incompetech.com)
-
-## Note
-
-If sound files are missing, the game will continue to run but without sound effects. The audio system will log warnings for missing files.
-
+**Note:** The placeholder files are valid WAV files (just silent), so the game works perfectly fine with them. Replacing them with real sounds is optional but recommended for better gameplay experience.

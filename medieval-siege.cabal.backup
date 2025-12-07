@@ -9,6 +9,11 @@ maintainer:         dev@example.com
 category:           Game
 build-type:         Simple
 
+flag use-sdl2-mixer
+  description:       Enable SDL2_mixer for background music
+  default:           True
+  manual:            True
+
 executable medieval-siege
   main-is:            Main.hs
   other-modules:      Types
@@ -54,7 +59,9 @@ executable medieval-siege
                     , filepath >= 1.4
                     , JuicyPixels >= 3.3
                     , gloss-juicy >= 0.2
-  -- SDL2_mixer dependencies (uncomment after installing SDL2_mixer via Homebrew)
-  -- build-depends:      sdl2 >= 2.5
-  --                   , sdl2-mixer >= 1.2
+  -- SDL2_mixer dependencies
+  if flag(use-sdl2-mixer)
+    build-depends:      sdl2 >= 2.5
+                      , sdl2-mixer >= 1.2
+    cpp-options:         -DUSE_SDL2_MIXER
   ghc-options:        -O2 -threaded -rtsopts -with-rtsopts=-N

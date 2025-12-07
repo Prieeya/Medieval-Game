@@ -24,7 +24,12 @@ findValidTargets world tower =
   let enemyList = M.elems (enemies world)
       inRange = filter (\e -> distance (towerPos tower) (enemyPos e) <= towerRange tower) enemyList
       alive = filter (\e -> enemyHP e > 0) inRange
-  in alive
+      
+      -- Special Rule: Only Archer-type towers can target enemies climbing walls
+      targetable = filter (\e -> case enemyAIState e of
+                                   ClimbingWall _ -> towerType tower `elem` [ArrowTower, CrossbowTower, PoisonTower]
+                                   _ -> True) alive
+  in targetable
 
 prioritizeTargets :: Tower -> [Enemy] -> World -> [Enemy]
 prioritizeTargets tower targets world =
@@ -66,14 +71,14 @@ distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 - y1)^2)
 -- Tower Firing
 -- ============================================================================
 
-fireTowers :: Float -> World -> M.Map EntityId Tower -> (M.Map EntityId Tower, M.Map EntityId Projectile)
+fireTowers :: Float -> World -> M.Map EntityId Tower -> (M.Map EntityId Tower, M.Map EntityId Projectile, [SoundEvent])
 fireTowers dt world towers =
   let towerList = M.elems towers
-      (towers', projectiles) = foldr (fireTower dt world) (towers, M.empty) towerList
-  in (towers', projectiles)
+      (towers', projectiles, events) = foldr (fireTower dt world) (towers, M.empty, []) towerList
+  in (towers', projectiles, events)
 
-fireTower :: Float -> World -> Tower -> (M.Map EntityId Tower, M.Map EntityId Projectile) -> (M.Map EntityId Tower, M.Map EntityId Projectile)
-fireTower dt world tower (towerMap, projectileMap) =
+fireTower :: Float -> World -> Tower -> (M.Map EntityId Tower, M.Map EntityId Projectile, [SoundEvent]) -> (M.Map EntityId Tower, M.Map EntityId Projectile, [SoundEvent])
+fireTower dt world tower (towerMap, projectileMap, events) =
   let canFire = (timeElapsed world - towerLastFireTime tower) >= towerFireRate tower
       hasTarget = case towerTargetId tower of
                     Just tid -> M.member tid (enemies world)
@@ -85,8 +90,9 @@ fireTower dt world tower (towerMap, projectileMap) =
            tower' = tower { towerLastFireTime = timeElapsed world }
            towerMap' = M.insert (towerId tower) tower' towerMap
            projectileMap' = M.insert (projectileId projectile) projectile projectileMap
-       in (towerMap', projectileMap')
-     else (towerMap, projectileMap)
+           events' = SoundTowerFire (towerType tower) : events
+       in (towerMap', projectileMap', events')
+     else (towerMap, projectileMap, events)
 
 createProjectileFrom :: Tower -> EntityId -> Float -> Projectile
 createProjectileFrom tower targetId time =

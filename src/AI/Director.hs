@@ -79,6 +79,8 @@ selectNormalComposition threat level wave gen =
         [ (GruntRaider, grunts)
         , (Shieldbearer, grunts `div` 3)
         , (Direwolf, fast)
+        , (TrapBreaker, if level >= 2 then fast `div` 2 else 0)
+        , (WallClimber, if level >= 3 then fast `div` 2 else 0)
         , (Pyromancer, casters)
         , (BruteCrusher, heavies)
         , (BoulderRamCrew, siege)
@@ -161,12 +163,12 @@ selectSpecialUnits threat level isBossWave =
       
       -- Add direwolves if there are many traps (fast units to bypass)
       specialUnits1 = if trapCount > 5
-                      then Direwolf : specialUnits
+                      then TrapBreaker : Direwolf : specialUnits
                       else specialUnits
       
       -- Add rams if gate is strong
       specialUnits2 = if gateDmg < 0.3 && level >= 2
-                      then BoulderRamCrew : specialUnits1
+                      then BoulderRamCrew : WallClimber : specialUnits1
                       else specialUnits1
       
       -- Add pyromancers if there are many towers
