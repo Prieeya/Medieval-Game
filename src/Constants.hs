@@ -340,11 +340,31 @@ abilityDurations TimeSlow = 8.0
 gateMaxHP :: Float
 gateMaxHP = 3000  -- Base gate HP
 
+-- Max gate level
+maxGateLevel :: Int
+maxGateLevel = 5
+
+-- Gate upgrade cost (increases with level)
+gateUpgradeCost :: Int -> Int
+gateUpgradeCost lvl = 150 + lvl * 100  -- 250, 350, 450, 550 for levels 2-5
+
 gateUpgradeBaseCost :: Int
-gateUpgradeBaseCost = 300  -- Base cost for upgrading gate
+gateUpgradeBaseCost = 150  -- Base cost for upgrading gate (for backwards compat)
 
 gateHPPerLevel :: Float
-gateHPPerLevel = 1000  -- HP increase per level (more significant upgrades)
+gateHPPerLevel = 800  -- HP increase per level
+
+-- Gate armor per level (reduces damage taken)
+gateArmorPerLevel :: Float
+gateArmorPerLevel = 5  -- +5 armor per level
+
+-- Gate upgrade bonuses description
+gateUpgradeBonus :: Int -> String
+gateUpgradeBonus 2 = "+800 HP, +5 Armor"
+gateUpgradeBonus 3 = "+1600 HP, +10 Armor, Reinforced"
+gateUpgradeBonus 4 = "+2400 HP, +15 Armor, Auto-repair"
+gateUpgradeBonus 5 = "+3200 HP, +20 Armor, Invulnerable 5s"
+gateUpgradeBonus _ = ""
 
 -- Base repair cost per 100 HP of damage
 gateRepairCostPerHP :: Float
