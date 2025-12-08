@@ -151,9 +151,15 @@ onWaveCleared :: World -> World
 onWaveCleared world =
   let ws = waveState world
       isBossWave = wsWaveInLevel ws > wavesPerLevel
+      waveInLevel = wsWaveInLevel ws
+      level = wsLevel ws
       
       -- Grant wave completion gold
-      gold = baseWaveGold + wsLevel ws * 50
+      -- Waves 1-2: same base amount
+      -- Wave 3 (before boss): extra bonus to help afford towers
+      baseReward = baseWaveGold + level * 120
+      bossPrepBonus = if waveInLevel == wavesPerLevel then 400 else 0  -- Extra gold before boss wave
+      gold = baseReward + bossPrepBonus
       resources' = (resources world) { resGold = resGold (resources world) + gold }
       
       world1 = world { resources = resources' }

@@ -79,15 +79,16 @@ handleKeyEvent key keyState mousePos world =
       (SpecialKey KeyF1, Down) ->
         world { showDebug = not (showDebug world) }
       
-      -- Build Modes - Towers
+      -- Build Modes - Towers (matching UI hotbar labels)
       (Char '4', Down) -> setBuildMode (PlaceTower ArrowTower) world
-      (Char '5', Down) -> setBuildMode (PlaceTower CatapultTower) world
-      (Char '6', Down) -> setBuildMode (PlaceTower CrossbowTower) world
-      (Char '7', Down) -> setBuildMode (PlaceTower FireTower) world
-      (Char '8', Down) -> setBuildMode (PlaceTower TeslaTower) world
-      (Char '9', Down) -> setBuildMode (PlaceTower BallistaTower) world
-      (Char '0', Down) -> setBuildMode (PlaceTower PoisonTower) world
-      (Char '-', Down) -> setBuildMode (PlaceTower BombardTower) world
+      (Char '5', Down) -> setBuildMode (PlaceTower BallistaTower) world
+      (Char '6', Down) -> setBuildMode (PlaceTower FireTower) world
+      (Char '7', Down) -> setBuildMode (PlaceTower TeslaTower) world
+      (Char '8', Down) -> setBuildMode (PlaceTower BombardTower) world
+      -- Additional towers not in hotbar
+      (Char '9', Down) -> setBuildMode (PlaceTower CatapultTower) world
+      (Char '0', Down) -> setBuildMode (PlaceTower CrossbowTower) world
+      (Char '-', Down) -> setBuildMode (PlaceTower PoisonTower) world
       
       -- Build Modes - Traps (lowercase and uppercase)
       (Char 'z', Down) -> setBuildMode (PlaceTrap SpikeTrap) world
@@ -177,19 +178,17 @@ handleMouseClick mousePos world =
     UpgradeMode -> upgradeTowerAt worldPos world
     NoBuild -> 
       -- Check for UI button clicks (buttons are at top-right)
-      -- Quit button: (worldWidth/2 - 80, worldHeight/2 - 60), size 60x25
-      -- Reset button: (worldWidth/2 - 80, worldHeight/2 - 90), size 60x25
+      -- Updated positions: 100px from right edge, buttons are 80x30
       -- Note: Gloss coordinates have (0,0) at center, Y increases upward
-      let quitX = halfW - 80
-          quitY = halfH - 60
-          resetX = halfW - 80
-          resetY = halfH - 90
-          buttonW = 60
-          buttonH = 25
-      in if mx >= quitX - buttonW/2 && mx <= quitX + buttonW/2 &&
+      let buttonX = halfW - 100  -- 100px from right edge
+          quitY = halfH - 40     -- 40px from top
+          resetY = halfH - 75    -- 75px from top
+          buttonW = 80
+          buttonH = 30
+      in if mx >= buttonX - buttonW/2 && mx <= buttonX + buttonW/2 &&
             my <= quitY + buttonH/2 && my >= quitY - buttonH/2
          then requestQuit world
-         else if mx >= resetX - buttonW/2 && mx <= resetX + buttonW/2 &&
+         else if mx >= buttonX - buttonW/2 && mx <= buttonX + buttonW/2 &&
                  my <= resetY + buttonH/2 && my >= resetY - buttonH/2
               then requestReset world
               else world
@@ -258,7 +257,7 @@ placeTower :: TowerType -> Vec2 -> World -> World
 placeTower towerType pos world
   | not (isInsideFort pos) = world
   | not (isValidTowerPlacement pos world) = world
-  | isAdvancedTower towerType && not (upgradeUnlocked $ upgradeUnlock world) = world
+  -- Removed lock check - all towers are now available from the start
   | resGold (resources world) < towerCost towerType = world
   | otherwise =
       let tower = createTower (nextEntityId world) towerType pos (timeElapsed world)
@@ -428,32 +427,31 @@ isValidTrapPlacement pos world =
 repairGateIfPending :: World -> World
 repairGateIfPending world =
   let gates = fortGates (fort world)
-      -- Find all damaged gates and calculate total repair cost
-      damagedGates = filter (\g -> gateHP g < gateMaxHP g) gates
-      totalDamage = sum $ map (\g -> gateMaxHP g - gateHP g) damagedGates
-      destroyedCount = length $ filter gateDestroyed damagedGates
-      baseCost = round (totalDamage * Constants.gateRepairCostPerHP)
-      destroyedBonus = destroyedCount * Constants.gateDestroyedBonus
-      cost = max Constants.gateRepairMinCost (baseCost + destroyedBonus)
+      -- Find only destroyed gates (not just damaged ones)
+      destroyedGates = filter gateDestroyed gates
+      -- Flat cost: 150 gold per destroyed gate only
+      cost = length destroyedGates * 150
       hasEnoughGold = resGold (resources world) >= cost
-      hasDamage = not (null damagedGates)
+      hasDamage = not (null destroyedGates)
   in if hasDamage && hasEnoughGold
      then
        let -- Deduct gold
            resources' = ResourceSystem.spendGold cost (resources world)
-           -- Repair all gates to full HP
-           gates' = map (\g -> g { gateHP = gateMaxHP g, gateDestroyed = False }) gates
+           -- Repair only destroyed gates to full HP
+           gates' = map (\g -> if gateDestroyed g 
+                              then g { gateHP = gateMaxHP g, gateDestroyed = False }
+                              else g) gates
            fort' = (fort world) { fortGates = gates' }
            -- Sound and message
            events = SoundGateRepaired : soundEvents world
-           gateCount = length damagedGates
+           gateCount = length destroyedGates
            message = Just ("Repaired " ++ show gateCount ++ " gate(s)! (-" ++ show cost ++ "g)", 3.0)
            ws = waveState world
            ws' = ws { wsGateRepairPending = False }
        in world { fort = fort', resources = resources', waveState = ws', soundEvents = events, gameMessage = message }
      else if hasDamage && not hasEnoughGold
           then
-            let gateCount = length damagedGates
+            let gateCount = length destroyedGates
                 message = Just ("Need " ++ show cost ++ "g to repair " ++ show gateCount ++ " gate(s)", 2.0)
                 events = SoundError : soundEvents world
             in world { gameMessage = message, soundEvents = events }

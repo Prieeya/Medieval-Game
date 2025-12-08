@@ -175,14 +175,14 @@ enemyGoldValue LichKingArcthros = 200  -- Boss Level 9
 -- Tower costs based on damage output (costlier for higher damage)
 -- Formula: base cost + (damage * cost per damage point)
 towerCost :: TowerType -> Int
-towerCost ArrowTower = 50 + round (40 * 1.2)      -- 40 damage -> 98g (was 50g)
+towerCost ArrowTower = 50 + round (40 * 1.2)      -- 40 damage -> 50g (was 50g)
 towerCost CatapultTower = 80 + round (90 * 1.0)   -- 90 damage -> 170g (was 120g)
-towerCost CrossbowTower = 100 + round (120 * 1.0) -- 120 damage -> 220g (was 150g)
+towerCost CrossbowTower = 100 + round (120 * 1.0) -- 120 damage -> 180g (was 150g)
 towerCost FireTower = 70 + round (30 * 1.5)      -- 30 damage + DoT -> 115g (was 130g)
 towerCost TeslaTower = 120 + round (55 * 1.2)    -- 55 damage + chain -> 186g (was 200g)
 towerCost BallistaTower = 150 + round (140 * 1.0) -- 140 damage -> 290g (was 220g)
 towerCost PoisonTower = 60 + round (25 * 1.2)     -- 25 damage + debuff -> 90g (was 90g)
-towerCost BombardTower = 180 + round (160 * 1.0)  -- 160 damage + AoE -> 340g (was 250g)
+towerCost BombardTower = 180 + round (160 * 1.0)  -- 160 damage + AoE -> 250g (was 250g)
 
 -- Tower upgrade cost: increases with level
 towerUpgradeCost :: TowerType -> Int -> Int
@@ -399,7 +399,7 @@ startingGold = 500  -- Starting gold
 
 
 baseWaveGold :: Int
-baseWaveGold = 200
+baseWaveGold = 200  -- Increased from 200 to provide more gold for tower placement
 
 repairCost :: Float -> Int
 repairCost damage = ceiling (damage * 0.5)

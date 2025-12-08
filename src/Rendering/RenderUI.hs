@@ -186,8 +186,8 @@ renderCastleHPBar world =
       currentHP = castleHP c
       maxHP = castleMaxHP c
       ratio = currentHP / maxHP
-      barX = worldWidth/2 - 200
-      barY = worldHeight/2 - 80
+      barX = worldWidth/2 - 200  -- Moved left to avoid buttons
+      barY = worldHeight/2 - 120  -- Moved down to avoid buttons (was -80)
       barWidth = 150  -- Castle HP bar width
       barHeight = 20  -- Reduced from 30
       -- Determine color based on health state
@@ -484,21 +484,25 @@ renderGateRepairPrompt world =
 
 renderQuitResetButtons :: World -> Picture
 renderQuitResetButtons world =
-  let buttonY = worldHeight/2 - 30
-      quitX = worldWidth/2 - 80
-      resetX = worldWidth/2 - 80
+  let -- Position buttons in upper right corner with padding
+      -- worldWidth/2 = 800 (right edge), worldHeight/2 = 450 (top edge)
+      buttonX = worldWidth/2 - 100  -- 100px from right edge
+      quitY = worldHeight/2 - 40    -- 40px from top
+      resetY = worldHeight/2 - 75   -- 75px from top (35px spacing)
+      buttonW = 80  -- Larger buttons
+      buttonH = 30  -- Taller buttons
   in pictures
     [ -- Quit Button
-      translate quitX (buttonY - 30) $ pictures
-        [ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid 60 25
-        , color darkWoodBrown $ rectangleWire 60 25
-        , translate (-20) (-5) $ scale 0.1 0.1 $ color (makeColor 1 1 1 1) $ text "QUIT"
+      translate buttonX quitY $ pictures
+        [ color (makeColor 0.8 0.2 0.2 1) $ rectangleSolid buttonW buttonH
+        , color darkWoodBrown $ rectangleWire buttonW buttonH
+        , translate (-25) (-8) $ scale 0.12 0.12 $ color (makeColor 1 1 1 1) $ text "QUIT"
         ]
     , -- Reset Button
-      translate resetX (buttonY - 60) $ pictures
-        [ color (makeColor 0.2 0.6 0.8 1) $ rectangleSolid 60 25
-        , color darkWoodBrown $ rectangleWire 60 25
-        , translate (-20) (-5) $ scale 0.1 0.1 $ color (makeColor 1 1 1 1) $ text "RESET"
+      translate buttonX resetY $ pictures
+        [ color (makeColor 0.2 0.6 0.8 1) $ rectangleSolid buttonW buttonH
+        , color darkWoodBrown $ rectangleWire buttonW buttonH
+        , translate (-28) (-8) $ scale 0.12 0.12 $ color (makeColor 1 1 1 1) $ text "RESET"
         ]
     ]
 
